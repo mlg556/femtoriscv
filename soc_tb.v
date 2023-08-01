@@ -1,29 +1,26 @@
-`include "soc.v"
-
 module soc_tb ();
-  reg CLK;
-  wire RESET = 0;
-  wire [4:0] LEDS;
-  reg RXD = 1'b0;
-  wire TXD;
+    reg clk = 0;
+    reg btn1 = 1;
+    wire [5:0] leds;
 
-  soc uut (
-      .CLK  (CLK),
-      .RESET(RESET),
-      .LEDS (LEDS),
-      .RXD  (RXD),
-      .TXD  (TXD)
-  );
+    soc uut (
+        .clk (clk),
+        .btn1(btn1),
+        .leds(leds)
+    );
 
-  reg [4:0] prev_LEDS = 0;
-  initial begin
-    CLK = 0;
-    forever begin
-      #1 CLK = ~CLK;
-      if (LEDS != prev_LEDS) begin
-        $display("LEDS = %b", LEDS);
-      end
-      prev_LEDS <= LEDS;
+    initial begin
+        clk = 0;
     end
-  end
+
+    always begin
+        #1 clk = ~clk;
+    end
+
+    initial begin
+        $dumpfile("soc_tb.vcd");
+        $dumpvars(0, soc_tb);
+        $monitor("%b", leds);
+        #500 $finish;
+    end
 endmodule

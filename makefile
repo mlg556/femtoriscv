@@ -1,7 +1,7 @@
 BOARD=tangnano9k
 FAMILY=GW1N-9C
 DEVICE=GW1NR-LV9QN88PC6/I5
-PROJECT=soc
+PROJECT=cpu
 
 all: ${PROJECT}.fs ${BOARD}.cst
 
@@ -25,8 +25,9 @@ ${PROJECT}_test.o: ${PROJECT}.v ${PROJECT}_tb.v
 	iverilog -o ${PROJECT}_test.o ${PROJECT}.v ${PROJECT}_tb.v
 
 test: ${PROJECT}_test.o
-	vvp ${PROJECT}_test.o; gtkwave ${PROJECT}_tb.vcd
+	vvp ${PROJECT}_test.o; 
 
+# gtkwave ${PROJECT}_tb.vcd
 # Cleanup build artifacts, del for windows cmd.exe
 clean:
 	del ${PROJECT}.fs  ${PROJECT}_pnr.json ${PROJECT}.json ${PROJECT}_test.o

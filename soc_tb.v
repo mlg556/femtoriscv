@@ -1,17 +1,12 @@
 module soc_tb ();
+
     reg clk = 0;
-    reg btn1 = 1;
-    wire [5:0] leds;
+    reg reset = 1;
 
-    soc uut (
-        .clk (clk),
-        .btn1(btn1),
-        .leds(leds)
+    SOC u0 (
+        .clk(clk),
+        .resetn(reset)
     );
-
-    initial begin
-        clk = 0;
-    end
 
     always begin
         #1 clk = ~clk;
@@ -20,7 +15,9 @@ module soc_tb ();
     initial begin
         $dumpfile("soc_tb.vcd");
         $dumpvars(0, soc_tb);
-        $monitor("%b", leds);
-        #500 $finish;
+
+        #100 $finish;
+
     end
+
 endmodule

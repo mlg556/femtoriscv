@@ -12,7 +12,7 @@ module cpu_tb ();
         $dumpfile("cpu_tb.vcd");
         $dumpvars(0, cpu_tb);
 
-        #1000 $finish;
+        #10000 $finish;  // just in case
 
     end
 

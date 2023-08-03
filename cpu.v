@@ -1,9 +1,12 @@
 module cpu (
-    input clk
+    input clk,
+    input resetn
 );
 
-    localparam OPCODE_R = 7'b0110011;
-    localparam OPCODE_I = 7'b0010011;
+    // opcodes
+    localparam TYPE_R = 7'b0110011;
+    localparam TYPE_I = 7'b0010011;
+    localparam TYPE_X = 7'b1110011;  // special system instruction
 
 
     reg [31:0] MEM[0:255];
@@ -12,6 +15,7 @@ module cpu (
 
     reg [31:0] RA[0:31];  // register array
 
+    // to hgold source registers
     reg [31:0] rs1 = 0;
     reg [31:0] rs2 = 0;
 
@@ -24,13 +28,12 @@ module cpu (
         ADDI(x1, x1, 1);
         ADDI(x1, x1, 1);
         ADDI(x1, x1, 1);
-        ADDI(x1, x1, 1);
-        ADDI(x1, x1, 1);
-        ADDI(x1, x1, 1);
-        ADDI(x1, x1, 1);
-        ADDI(x1, x1, 1);
         ADD(x2, x1, x0);
         ADD(x3, x1, x2);
+        SRLI(x3, x3, 3);
+        SLLI(x3, x3, 31);
+        SRAI(x3, x3, 5);
+        SRLI(x1, x3, 26);
         EBREAK();
 
         // zero all registers
@@ -38,7 +41,7 @@ module cpu (
             RA[i] = 0;
         end
 
-        $monitor("x1: %d, x2: %d", RA[1], RA[2]);
+        $monitor("x1: %d, x2: %d, x3: %d", RA[1], RA[2], RA[3]);
     end
 
     // there are 6 main types of instructions
@@ -49,7 +52,7 @@ module cpu (
     // U-Type: instructions using upper immediates (20-bits):  lui, auipc
     // J-Type: jump instructions: ja
 
-    // R-Type fields
+    // common fields
     wire [ 6:0] opcode = instr[6:0];
     wire [ 4:0] rd_idx = instr[11:7];
     wire [ 4:0] rs1_idx = instr[19:15];
@@ -57,18 +60,24 @@ module cpu (
     wire [ 2:0] funct3 = instr[14:12];
     wire [ 6:0] funct7 = instr[31:25];
 
-    // I-Type fields
-    wire [11:0] I_imm = instr[32:20];
+    // immediate fields
+    wire [31:0] I_imm = {{21{instr[31]}}, instr[30:20]};
+    wire [31:0] S_imm = {{21{instr[31]}}, instr[30:25], instr[11:7]};
+    wire [31:0] B_imm = {{20{instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0};
+    wire [31:0] U_imm = {instr[31], instr[30:12], {12{1'b0}}};
+    wire [31:0] J_imm = {{12{instr[31]}}, instr[19:12], instr[20], instr[30:21], 1'b0};
 
-    // how to make x0 (RA[0]) always 0, even when written to?
+    // I_type shamt: I_imm[4:0]
+    wire [ 4:0] shamt = rs2_idx;
 
     always @(posedge clk) begin
+        if (!resetn) begin
+            PC = 0;
+        end
         instr = MEM[PC];
         RA[0] = 0;  // zero register
-
-
         case (opcode)
-            OPCODE_R: begin
+            TYPE_R: begin
                 rs1 = RA[rs1_idx];
                 rs2 = RA[rs2_idx];
 
@@ -94,25 +103,53 @@ module cpu (
                     end
 
                     3'h5: begin
-                        if (funct7 == 7'h00) RA[rd_idx] = rs1 >> rs2;  // sll
+                        if (funct7 == 7'h00) RA[rd_idx] = rs1 >> rs2;  // srl
+                        if (funct7 == 7'h20) RA[rd_idx] = $signed(rs1) >>> $signed(rs2);  // sra?
+                    end
+
+                    3'h2: begin
+                        if (funct7 == 7'h00)
+                            RA[rd_idx] = ($signed(rs1) < $signed(rs2)) ? 32'd1 : 32'd0;  // slt?
+                    end
+                    3'h3: begin
+                        if (funct7 == 7'h00) RA[rd_idx] = (rs1 < rs2) ? 32'd1 : 32'd0;  // sltu
                     end
 
                 endcase
+                //increment PC
+                PC = PC + 1;
 
             end
 
-            OPCODE_I: begin
+            TYPE_I: begin
                 rs1 = RA[rs1_idx];
                 case (funct3)
                     3'h0: RA[rd_idx] = rs1 + I_imm;  // addi
                     3'h4: RA[rd_idx] = rs1 ^ I_imm;  // xori
                     3'h6: RA[rd_idx] = rs1 | I_imm;  // ori
                     3'h7: RA[rd_idx] = rs1 & I_imm;  // andi
+                    3'h1: begin
+                        if (funct7 == 7'h00) RA[rd_idx] = rs1 << shamt;  // slli
+                    end
+                    3'h5: begin
+                        if (funct7 == 7'h00) RA[rd_idx] = rs1 >> shamt;  // srli
+                        if (funct7 == 7'h20) RA[rd_idx] = $signed(rs1) >>> shamt;  // srai
+                    end
+                    3'h2: RA[rd_idx] = ($signed(rs1) < $signed(I_imm)) ? 32'd1 : 32'd0;  // slti
+                    3'h3: RA[rd_idx] = (rs1 < I_imm) ? 32'd1 : 32'd0;  // sltiu
                 endcase
+                // increment PC
+                PC = PC + 1;
+            end
+
+            TYPE_J: begin
+            end
+
+            TYPE_X: begin
+                // basically nop, do NOT increment PC and finish simulation
+                $finish;
             end
         endcase
-        PC = PC + 1;
     end
-
 
 endmodule

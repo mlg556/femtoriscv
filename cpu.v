@@ -6,6 +6,10 @@ module cpu (
     // opcodes
     localparam TYPE_R = 7'b0110011;
     localparam TYPE_I = 7'b0010011;
+    localparam TYPE_ILOAD = 7'b0000011;
+    localparam TYPE_JAL = 7'b1101111;
+    localparam TYPE_JALR = 7'b1100111;
+
     localparam TYPE_X = 7'b1110011;  // special system instruction
 
 
@@ -21,27 +25,24 @@ module cpu (
 
 
     `include "riscv_assembly.v"
+    integer L0_ = 4;
+    integer i;
     initial begin
-        ADD(x0, x0, x0);
-        ADD(x1, x0, x0);
-        ADDI(x1, x1, 1);
-        ADDI(x1, x1, 1);
-        ADDI(x1, x1, 1);
-        ADDI(x1, x1, 1);
-        ADD(x2, x1, x0);
-        ADD(x3, x1, x2);
-        SRLI(x3, x3, 3);
-        SLLI(x3, x3, 31);
-        SRAI(x3, x3, 5);
-        SRLI(x1, x3, 26);
-        EBREAK();
+        PC     = 0;
+
+        MEM[0] = 32'h000000b3;
+        MEM[1] = 32'h00108093;
+        MEM[2] = 32'hffdff06f;
 
         // zero all registers
-        for (integer i = 0; i < 31; i++) begin
+        for (i = 0; i < 31; i++) begin
             RA[i] = 0;
         end
 
-        $monitor("x1: %d, x2: %d, x3: %d", RA[1], RA[2], RA[3]);
+        instr = MEM[0];
+
+
+        //$monitor("PC: %0d | OPC: %b | x1: %0d, x2: %0d", PC, opcode, RA[1], RA[2]);
     end
 
     // there are 6 main types of instructions
@@ -71,11 +72,15 @@ module cpu (
     wire [ 4:0] shamt = rs2_idx;
 
     always @(posedge clk) begin
+        // RESET
         if (!resetn) begin
             PC = 0;
         end
-        instr = MEM[PC];
-        RA[0] = 0;  // zero register
+        // fetch instruction
+        instr = MEM[PC[31:2]];
+
+        // force zero register (x0)
+        RA[0] = 0;
         case (opcode)
             TYPE_R: begin
                 rs1 = RA[rs1_idx];
@@ -117,8 +122,7 @@ module cpu (
 
                 endcase
                 //increment PC
-                PC = PC + 1;
-
+                PC = PC + 4;
             end
 
             TYPE_I: begin
@@ -139,17 +143,29 @@ module cpu (
                     3'h3: RA[rd_idx] = (rs1 < I_imm) ? 32'd1 : 32'd0;  // sltiu
                 endcase
                 // increment PC
-                PC = PC + 1;
+                PC = PC + 4;
             end
 
-            TYPE_J: begin
+            TYPE_JAL: begin
+                RA[rd_idx] = PC + 4;
+                PC = PC + J_imm;
             end
 
-            TYPE_X: begin
-                // basically nop, do NOT increment PC and finish simulation
-                $finish;
+            TYPE_JALR: begin
+                rs1 = RA[rs1_idx];
+
+                RA[rd_idx] = PC + 4;
+                PC = rs1 + I_imm;
             end
+
+            // TYPE_X: begin
+            //     // basically nop, do NOT increment PC and finish simulation
+            //     //$display("PC: %0d", PC);
+            //     $finish;
+            // end
         endcase
+
+        instr = MEM[PC[31:2]];  // update opcode before next clock?
     end
 
 endmodule

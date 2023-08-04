@@ -9,20 +9,21 @@ module cpu (
 );
 
     // opcodes
-    localparam TYPE_R = 7'b0110011;
-    localparam TYPE_I = 7'b0010011;
-    localparam TYPE_ILOAD = 7'b0000011;
-    localparam TYPE_JAL = 7'b1101111;
-    localparam TYPE_JALR = 7'b1100111;
-    localparam TYPE_B = 7'b1100011;
-
-    localparam TYPE_X = 7'b1110011;  // special system instruction
+    localparam OPC_R = 7'b0110011;
+    localparam OPC_I = 7'b0010011;
+    localparam OPC_ILOAD = 7'b0000011;
+    localparam OPC_JAL = 7'b1101111;
+    localparam OPC_JALR = 7'b1100111;
+    localparam OPC_B = 7'b1100011;
+    localparam OPC_LUI = 7'b0110111;
+    localparam OPC_AUIPC = 7'b0010111;
+    localparam OPC_SYS = 7'b1110011;  // special system instruction
 
     reg [31:0] RA[0:31];  // register array
-    assign x1 = RA[1];  // x1 is output for visuals
+    assign x1 = RA[1];  // x1 is outed for visuals
 
-    // to hgold source registers
-    // register are signed by default, so we use $unsigned() with u-postfix instructions.
+    // to hold source registers
+    // register are signed by default, so we use $unsigned() when instruction is u-variant.
     reg signed [31:0] rs1 = 0;
     reg signed [31:0] rs2 = 0;
 
@@ -55,10 +56,10 @@ module cpu (
     wire [31:0] I_imm = {{21{instr[31]}}, instr[30:20]};
     wire [31:0] S_imm = {{21{instr[31]}}, instr[30:25], instr[11:7]};
     wire [31:0] B_imm = {{20{instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0};
-    wire [31:0] U_imm = {instr[31], instr[30:12], {12{1'b0}}};
+    wire [31:0] U_imm = {instr[31], instr[30:12], {12{1'b0}}};  // left shifted
     wire [31:0] J_imm = {{12{instr[31]}}, instr[19:12], instr[20], instr[30:21], 1'b0};
 
-    // I_type shamt: I_imm[4:0]
+    // I_type shift amount: I_imm[4:0]
     wire [ 4:0] shamt = rs2_idx;
 
     always @(posedge clk) begin
@@ -69,7 +70,8 @@ module cpu (
         // force zero register (x0)
         RA[0] = 0;
         case (opcode)
-            TYPE_R: begin
+            OPC_R: begin
+                // fetch source registers
                 rs1 = RA[rs1_idx];
                 rs2 = RA[rs2_idx];
                 case (funct3)
@@ -107,11 +109,11 @@ module cpu (
                     end
 
                 endcase
-                //increment PC
-                PC = PC + 4;
+                PC = PC + 4;  // increment PC
             end
 
-            TYPE_I: begin
+            OPC_I: begin
+                // fetch source register rs1
                 rs1 = RA[rs1_idx];
                 case (funct3)
                     3'h0: RA[rd_idx] = rs1 + I_imm;  // addi
@@ -129,23 +131,23 @@ module cpu (
                     3'h3:
                     RA[rd_idx] = ($unsigned(rs1) < $unsigned(I_imm)) ? 32'd1 : 32'd0;  // sltiu
                 endcase
-                // increment PC
-                PC = PC + 4;
+                PC = PC + 4;  // increment PC
+
             end
 
-            TYPE_JAL: begin  // jal
+            OPC_JAL: begin  // jal
                 RA[rd_idx] = PC + 4;
                 PC = PC + J_imm;
             end
 
-            TYPE_JALR: begin  // jalr
+            OPC_JALR: begin  // jalr
                 rs1 = RA[rs1_idx];
 
                 RA[rd_idx] = PC + 4;
                 PC = rs1 + I_imm;
             end
 
-            TYPE_B: begin
+            OPC_B: begin
                 rs1 = RA[rs1_idx];
                 rs2 = RA[rs2_idx];
 
@@ -159,9 +161,19 @@ module cpu (
                 endcase
             end
 
-            TYPE_X: begin
-                // // basically nop, do NOT increment PC and finish simulation
-                // //$display("PC: %0d", PC);
+            OPC_LUI: begin
+                RA[rd_idx] = U_imm;
+                PC = PC + 4;  // increment PC
+            end
+
+            OPC_AUIPC: begin
+                RA[rd_idx] = PC + U_imm;
+                PC = PC + 4;  // increment PC
+
+            end
+
+            OPC_SYS: begin
+                // basically nop, do NOT increment PC and finish simulation
                 // $finish;
             end
         endcase

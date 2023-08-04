@@ -1,4 +1,3 @@
-    
 # count to N and repeat
     # x1 = 0
     add x1, x0, x0

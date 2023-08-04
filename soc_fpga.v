@@ -207,7 +207,7 @@ module DIG_ROM_16384X32_rom (
 
     initial begin
         my_rom[0] = 32'hb3;
-        my_rom[1] = 32'ha00113;
+        my_rom[1] = 32'h3f00113;
         my_rom[2] = 32'h108093;
         my_rom[3] = 32'hfe209ee3;
         my_rom[4] = 32'hb3;

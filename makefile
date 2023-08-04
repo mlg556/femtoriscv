@@ -1,7 +1,7 @@
 BOARD=tangnano9k
 FAMILY=GW1N-9C
 DEVICE=GW1NR-LV9QN88PC6/I5
-PROJECT=cpu
+PROJECT=soc_fpga
 
 all: ${PROJECT}.fs ${BOARD}.cst
 

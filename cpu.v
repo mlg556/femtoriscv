@@ -1,6 +1,11 @@
 module cpu (
     input clk,
-    input resetn
+    input resetn,
+    input [31:0] instr,
+
+    output reg [31:0] PC = 0,
+    output [31:0] x1
+
 );
 
     // opcodes
@@ -9,40 +14,25 @@ module cpu (
     localparam TYPE_ILOAD = 7'b0000011;
     localparam TYPE_JAL = 7'b1101111;
     localparam TYPE_JALR = 7'b1100111;
+    localparam TYPE_B = 7'b1100011;
 
     localparam TYPE_X = 7'b1110011;  // special system instruction
 
-
-    reg [31:0] MEM[0:255];
-    reg [31:0] PC = 0;
-    reg [31:0] instr;
-
     reg [31:0] RA[0:31];  // register array
+    assign x1 = RA[1];  // x1 is output for visuals
 
     // to hgold source registers
-    reg [31:0] rs1 = 0;
-    reg [31:0] rs2 = 0;
+    // register are signed by default, so we use $unsigned() with u-postfix instructions.
+    reg signed [31:0] rs1 = 0;
+    reg signed [31:0] rs2 = 0;
 
-
-    `include "riscv_assembly.v"
-    integer L0_ = 4;
     integer i;
     initial begin
-        PC     = 0;
-
-        MEM[0] = 32'h000000b3;
-        MEM[1] = 32'h00108093;
-        MEM[2] = 32'hffdff06f;
-
+        PC = 0;
         // zero all registers
         for (i = 0; i < 31; i++) begin
             RA[i] = 0;
         end
-
-        instr = MEM[0];
-
-
-        //$monitor("PC: %0d | OPC: %b | x1: %0d, x2: %0d", PC, opcode, RA[1], RA[2]);
     end
 
     // there are 6 main types of instructions
@@ -76,16 +66,12 @@ module cpu (
         if (!resetn) begin
             PC = 0;
         end
-        // fetch instruction
-        instr = MEM[PC[31:2]];
-
         // force zero register (x0)
         RA[0] = 0;
         case (opcode)
             TYPE_R: begin
                 rs1 = RA[rs1_idx];
                 rs2 = RA[rs2_idx];
-
                 case (funct3)
                     3'h0: begin
                         if (funct7 == 7'h00) RA[rd_idx] = rs1 + rs2;  // add
@@ -109,15 +95,15 @@ module cpu (
 
                     3'h5: begin
                         if (funct7 == 7'h00) RA[rd_idx] = rs1 >> rs2;  // srl
-                        if (funct7 == 7'h20) RA[rd_idx] = $signed(rs1) >>> $signed(rs2);  // sra?
+                        if (funct7 == 7'h20) RA[rd_idx] = rs1 >>> rs2;  // sra
                     end
 
                     3'h2: begin
-                        if (funct7 == 7'h00)
-                            RA[rd_idx] = ($signed(rs1) < $signed(rs2)) ? 32'd1 : 32'd0;  // slt?
+                        if (funct7 == 7'h00) RA[rd_idx] = rs1 < rs2 ? 32'd1 : 32'd0;  // slt
                     end
                     3'h3: begin
-                        if (funct7 == 7'h00) RA[rd_idx] = (rs1 < rs2) ? 32'd1 : 32'd0;  // sltu
+                        if (funct7 == 7'h00)
+                            RA[rd_idx] = ($unsigned(rs1) < $unsigned(rs2)) ? 32'd1 : 32'd0;  // sltu
                     end
 
                 endcase
@@ -139,33 +125,46 @@ module cpu (
                         if (funct7 == 7'h00) RA[rd_idx] = rs1 >> shamt;  // srli
                         if (funct7 == 7'h20) RA[rd_idx] = $signed(rs1) >>> shamt;  // srai
                     end
-                    3'h2: RA[rd_idx] = ($signed(rs1) < $signed(I_imm)) ? 32'd1 : 32'd0;  // slti
-                    3'h3: RA[rd_idx] = (rs1 < I_imm) ? 32'd1 : 32'd0;  // sltiu
+                    3'h2: RA[rd_idx] = (rs1 < $signed(I_imm)) ? 32'd1 : 32'd0;  // slti
+                    3'h3:
+                    RA[rd_idx] = ($unsigned(rs1) < $unsigned(I_imm)) ? 32'd1 : 32'd0;  // sltiu
                 endcase
                 // increment PC
                 PC = PC + 4;
             end
 
-            TYPE_JAL: begin
+            TYPE_JAL: begin  // jal
                 RA[rd_idx] = PC + 4;
                 PC = PC + J_imm;
             end
 
-            TYPE_JALR: begin
+            TYPE_JALR: begin  // jalr
                 rs1 = RA[rs1_idx];
 
                 RA[rd_idx] = PC + 4;
                 PC = rs1 + I_imm;
             end
 
-            // TYPE_X: begin
-            //     // basically nop, do NOT increment PC and finish simulation
-            //     //$display("PC: %0d", PC);
-            //     $finish;
-            // end
-        endcase
+            TYPE_B: begin
+                rs1 = RA[rs1_idx];
+                rs2 = RA[rs2_idx];
 
-        instr = MEM[PC[31:2]];  // update opcode before next clock?
+                case (funct3)
+                    3'h0: PC = (rs1 == rs2) ? PC + B_imm : PC + 4;  // beq
+                    3'h1: PC = (rs1 != rs2) ? PC + B_imm : PC + 4;  // bne
+                    3'h4: PC = (rs1 < rs2) ? PC + B_imm : PC + 4;  // blt
+                    3'h5: PC = (rs1 >= rs2) ? PC + B_imm : PC + 4;  // bge
+                    3'h6: PC = ($unsigned(rs1) < $unsigned(rs2)) ? PC + B_imm : PC + 4;  // bltu
+                    3'h7: PC = ($unsigned(rs1) >= $unsigned(rs2)) ? PC + B_imm : PC + 4;  // bgeu
+                endcase
+            end
+
+            TYPE_X: begin
+                // // basically nop, do NOT increment PC and finish simulation
+                // //$display("PC: %0d", PC);
+                // $finish;
+            end
+        endcase
     end
 
 endmodule

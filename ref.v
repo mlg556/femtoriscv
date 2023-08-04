@@ -1,52 +1,39 @@
 /**
- * Step 6: Creating a RISC-V processor
- *         The ALU
+ * Step 10: Creating a RISC-V processor
+ *         LUI, AUIPC
  * DONE*
  */
 
 `default_nettype none
 
 module SOC (
-    input        clk,     // system clock 
-    input        resetn,  // reset button
-    output [4:0] LEDS,    // system LEDs
-    input        RXD,     // UART receive
-    output       TXD      // UART transmit
+    input        CLK,    // system clock 
+    input        RESET,  // reset button
+    output [4:0] LEDS,   // system LEDs
+    input        RXD,    // UART receive
+    output       TXD     // UART transmit
 );
 
+    wire clk;  // internal clock
+    wire resetn;  // internal reset signal, goes low on reset
 
     // Plug the leds on register 1 to see its contents
     reg [4:0] leds;
     assign LEDS = leds;
 
+
     reg [31:0] MEM                           [0:255];
-    reg [31:0] PC;  // program counter
+    reg [31:0] PC = 0;  // program counter
     reg [31:0] instr;  // current instruction
+
 
     `include "riscv_assembly.v"
     initial begin
-        PC = 0;
-        ADD(x0, x0, x0);
-        ADD(x1, x0, x0);
-        ADDI(x1, x1, 1);
-        ADDI(x1, x1, 1);
-        ADDI(x1, x1, 1);
-        ADDI(x1, x1, 1);
-        ADD(x2, x1, x0);
-        ADD(x3, x1, x2);
-        SRLI(x3, x3, 3);
-        SLLI(x3, x3, 31);
-        SRAI(x3, x3, 5);
-        SRLI(x1, x3, 26);
+        LUI(x1, 32'b11111111111111111111111111111111);  // Just takes the 20 MSBs (12 LSBs ignored)
+        ORI(x1, x1, 32'b11111111111111111111111111111111);  // Sets the 12 LSBs (20 MSBs ignored)
         EBREAK();
 
-
-        // zero all registers
-        for (integer i = 0; i < 31; i++) begin
-            RegisterBank[i] = 0;
-        end
-
-        $monitor("x1: %d, x2: %d, x3: %d", RegisterBank[1], RegisterBank[2], RegisterBank[3]);
+        endASM();
     end
 
 
@@ -87,6 +74,15 @@ module SOC (
     wire [31:0] writeBackData;  // data to be written to rd
     wire        writeBackEn;  // asserted if data should be written to rd
 
+`ifdef BENCH
+    integer i;
+    initial begin
+        for (i = 0; i < 32; ++i) begin
+            RegisterBank[i] = 0;
+        end
+    end
+`endif
+
     // The ALU
     wire [31:0] aluIn1 = rs1;
     wire [31:0] aluIn2 = isALUreg ? rs2 : Iimm;
@@ -113,6 +109,19 @@ module SOC (
         endcase
     end
 
+    // The predicate for branch instructions
+    reg takeBranch;
+    always @(*) begin
+        case (funct3)
+            3'b000:  takeBranch = (rs1 == rs2);
+            3'b001:  takeBranch = (rs1 != rs2);
+            3'b100:  takeBranch = ($signed(rs1) < $signed(rs2));
+            3'b101:  takeBranch = ($signed(rs1) >= $signed(rs2));
+            3'b110:  takeBranch = (rs1 < rs2);
+            3'b111:  takeBranch = (rs1 >= rs2);
+            default: takeBranch = 1'b0;
+        endcase
+    end
 
     // The state machine
     localparam FETCH_INSTR = 0;
@@ -121,8 +130,24 @@ module SOC (
     reg [1:0] state = FETCH_INSTR;
 
     // register write back
-    assign writeBackData = aluOut;
-    assign writeBackEn   = (state == EXECUTE && (isALUreg || isALUimm));
+    assign writeBackData = (isJAL || isJALR) ? (PC + 4) :
+			  (isLUI) ? Uimm :
+			  (isAUIPC) ? (PC + Uimm) : 
+			  aluOut;
+
+    assign writeBackEn = (state == EXECUTE && 
+			 (isALUreg || 
+			  isALUimm || 
+			  isJAL    || 
+			  isJALR   ||
+			  isLUI    ||
+			  isAUIPC)
+			 );
+    // next PC
+    wire [31:0] nextPC = (isBranch && takeBranch) ? PC+Bimm  :	       
+   	                isJAL                    ? PC+Jimm  :
+	                isJALR                   ? rs1+Iimm :
+	                PC+4;
 
     always @(posedge clk) begin
         if (!resetn) begin
@@ -135,11 +160,13 @@ module SOC (
                 if (rdId == 1) begin
                     leds <= writeBackData;
                 end
-                //$display("x%0d <= %b", rdId, writeBackData);
+`ifdef BENCH
+                $display("x%0d <= %b", rdId, writeBackData);
+`endif
             end
             case (state)
                 FETCH_INSTR: begin
-                    instr <= MEM[PC];
+                    instr <= MEM[PC[31:2]];
                     state <= FETCH_REGS;
                 end
                 FETCH_REGS: begin
@@ -149,13 +176,50 @@ module SOC (
                 end
                 EXECUTE: begin
                     if (!isSYSTEM) begin
-                        PC <= PC + 1;
+                        PC <= nextPC;
                     end
                     state <= FETCH_INSTR;
+`ifdef BENCH
+                    if (isSYSTEM) $finish();
+`endif
                 end
             endcase
         end
     end
+
+`ifdef BENCH
+    always @(posedge clk) begin
+        if (state == FETCH_REGS) begin
+            case (1'b1)
+                isALUreg:
+                $display("ALUreg rd=%d rs1=%d rs2=%d funct3=%b", rdId, rs1Id, rs2Id, funct3);
+                isALUimm:
+                $display("ALUimm rd=%d rs1=%d imm=%0d funct3=%b", rdId, rs1Id, Iimm, funct3);
+                isBranch: $display("BRANCH rs1=%0d rs2=%0d", rs1Id, rs2Id);
+                isJAL: $display("JAL");
+                isJALR: $display("JALR");
+                isAUIPC: $display("AUIPC");
+                isLUI: $display("LUI");
+                isLoad: $display("LOAD");
+                isStore: $display("STORE");
+                isSYSTEM: $display("SYSTEM");
+            endcase
+            if (isSYSTEM) begin
+                $finish();
+            end
+        end
+    end
+`endif
+
+    // Gearbox and reset circuitry.
+    Clockworks #(
+        .SLOW(19)  // Divide clock frequency by 2^19
+    ) CW (
+        .CLK(CLK),
+        .RESET(RESET),
+        .clk(clk),
+        .resetn(resetn)
+    );
 
     assign TXD = 1'b0;  // not used for now   
 

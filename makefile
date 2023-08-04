@@ -25,7 +25,7 @@ ${PROJECT}_test.o: ${PROJECT}.v ${PROJECT}_tb.v
 	iverilog -o ${PROJECT}_test.o ${PROJECT}.v ${PROJECT}_tb.v
 
 test: ${PROJECT}_test.o
-	vvp ${PROJECT}_test.o; 
+	vvp ${PROJECT}_test.o;
 
 # gtkwave ${PROJECT}_tb.vcd
 # Cleanup build artifacts, del for windows cmd.exe

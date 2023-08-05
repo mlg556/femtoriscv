@@ -4,7 +4,7 @@ module cpu (
     input [31:0] instr,
 
     output reg [31:0] PC = 0,
-    output [31:0] x1
+    output [31:0] x10
 
 );
 
@@ -20,7 +20,7 @@ module cpu (
     localparam OPC_SYS = 7'b1110011;  // special system instruction
 
     reg [31:0] RA[0:31];  // register array
-    assign x1 = RA[1];  // x1 is outed for visuals
+    assign x10 = RA[10];  // x10  (a0) is outed for visuals
 
     // to hold source registers
     // register are signed by default, so we use $unsigned() when instruction is u-variant.

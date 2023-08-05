@@ -23,6 +23,9 @@ cmd_as = Popen(
 
 _, err = cmd_as.communicate(b"")
 
+if err:
+    print(err)
+
 cmd_objdump = Popen(
     ["riscv64-unknown-elf-objdump.exe", "-S", f"{fname_woext}.elf"],
     stdin=PIPE,

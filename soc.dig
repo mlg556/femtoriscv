@@ -20,7 +20,7 @@
         </entry>
         <entry>
           <string>externalOutputs</string>
-          <string>PC:32, x1:32</string>
+          <string>PC:32, x10:32</string>
         </entry>
         <entry>
           <string>Width</string>
@@ -41,16 +41,20 @@
           <int>14</int>
         </entry>
         <entry>
+          <string>Label</string>
+          <string>rom</string>
+        </entry>
+        <entry>
           <string>Bits</string>
           <int>32</int>
         </entry>
         <entry>
           <string>Data</string>
-          <data>100093,100113,193,2081b3,8113,18093,ff5ff06f</data>
+          <data>513,a00593,b50663,150513,ff9ff06f,100073</data>
         </entry>
         <entry>
           <string>lastDataFile</string>
-          <file>fib.hex</file>
+          <file>mul.hex</file>
         </entry>
         <entry>
           <string>autoReload</string>
@@ -106,7 +110,7 @@
         </entry>
         <entry>
           <string>Label</string>
-          <string>x1</string>
+          <string>x10</string>
         </entry>
         <entry>
           <string>Bits</string>

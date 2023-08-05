@@ -3,4 +3,5 @@
 **/*.vcd
 **/*.fs
 **/*.history
+**/*.elf
 

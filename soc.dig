@@ -123,6 +123,11 @@
       </elementAttributes>
       <pos x="220" y="200"/>
     </visualElement>
+    <visualElement>
+      <elementName>BlockRAMDualPort</elementName>
+      <elementAttributes/>
+      <pos x="-360" y="240"/>
+    </visualElement>
   </visualElements>
   <wires>
     <wire>

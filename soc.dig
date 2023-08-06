@@ -16,15 +16,19 @@
         </entry>
         <entry>
           <string>externalInputs</string>
-          <string>instr:32, resetn, clk</string>
+          <string>clk,resetn</string>
         </entry>
         <entry>
           <string>externalOutputs</string>
-          <string>PC:32, x10:32</string>
+          <string>x10:32</string>
         </entry>
         <entry>
           <string>Width</string>
           <int>6</int>
+        </entry>
+        <entry>
+          <string>iverilogOptions</string>
+          <string>-I C:/Users/mirac/Documents/fpga/femtoriscv</string>
         </entry>
         <entry>
           <string>CodeFile</string>
@@ -32,41 +36,6 @@
         </entry>
       </elementAttributes>
       <pos x="-20" y="180"/>
-    </visualElement>
-    <visualElement>
-      <elementName>ROM</elementName>
-      <elementAttributes>
-        <entry>
-          <string>AddrBits</string>
-          <int>14</int>
-        </entry>
-        <entry>
-          <string>Label</string>
-          <string>rom</string>
-        </entry>
-        <entry>
-          <string>Bits</string>
-          <int>32</int>
-        </entry>
-        <entry>
-          <string>Data</string>
-          <data>513,a00593,b50663,150513,ff9ff06f,100073</data>
-        </entry>
-        <entry>
-          <string>lastDataFile</string>
-          <file>mul.hex</file>
-        </entry>
-        <entry>
-          <string>autoReload</string>
-          <boolean>true</boolean>
-        </entry>
-      </elementAttributes>
-      <pos x="-300" y="160"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Const</elementName>
-      <elementAttributes/>
-      <pos x="-320" y="200"/>
     </visualElement>
     <visualElement>
       <elementName>Clock</elementName>
@@ -80,26 +49,12 @@
           <int>10</int>
         </entry>
       </elementAttributes>
-      <pos x="-60" y="240"/>
+      <pos x="-100" y="180"/>
     </visualElement>
     <visualElement>
       <elementName>Const</elementName>
       <elementAttributes/>
-      <pos x="-80" y="200"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Splitter</elementName>
-      <elementAttributes>
-        <entry>
-          <string>Input Splitting</string>
-          <string>32</string>
-        </entry>
-        <entry>
-          <string>Output Splitting</string>
-          <string>2,14,16</string>
-        </entry>
-      </elementAttributes>
-      <pos x="-380" y="140"/>
+      <pos x="-40" y="220"/>
     </visualElement>
     <visualElement>
       <elementName>Out</elementName>
@@ -123,64 +78,19 @@
       </elementAttributes>
       <pos x="220" y="200"/>
     </visualElement>
-    <visualElement>
-      <elementName>BlockRAMDualPort</elementName>
-      <elementAttributes/>
-      <pos x="-360" y="240"/>
-    </visualElement>
   </visualElements>
   <wires>
     <wire>
-      <p1 x="-60" y="240"/>
-      <p2 x="-40" y="240"/>
-    </wire>
-    <wire>
-      <p1 x="-360" y="160"/>
-      <p2 x="-300" y="160"/>
-    </wire>
-    <wire>
-      <p1 x="-240" y="180"/>
+      <p1 x="-100" y="180"/>
       <p2 x="-20" y="180"/>
-    </wire>
-    <wire>
-      <p1 x="100" y="180"/>
-      <p2 x="120" y="180"/>
-    </wire>
-    <wire>
-      <p1 x="-420" y="120"/>
-      <p2 x="120" y="120"/>
-    </wire>
-    <wire>
-      <p1 x="-320" y="200"/>
-      <p2 x="-300" y="200"/>
-    </wire>
-    <wire>
-      <p1 x="-80" y="200"/>
-      <p2 x="-20" y="200"/>
     </wire>
     <wire>
       <p1 x="100" y="200"/>
       <p2 x="220" y="200"/>
     </wire>
     <wire>
-      <p1 x="-420" y="140"/>
-      <p2 x="-380" y="140"/>
-    </wire>
-    <wire>
       <p1 x="-40" y="220"/>
       <p2 x="-20" y="220"/>
-    </wire>
-    <wire>
-      <p1 x="-420" y="120"/>
-      <p2 x="-420" y="140"/>
-    </wire>
-    <wire>
-      <p1 x="-40" y="220"/>
-      <p2 x="-40" y="240"/>
-    </wire>
-    <wire>
-      <p1 x="120" y="120"/>
-      <p2 x="120" y="180"/>
     </wire>
   </wires>
   <measurementOrdering/>

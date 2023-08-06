@@ -1,9 +1,7 @@
 module cpu (
     input clk,
     input resetn,
-    input [31:0] instr,
 
-    output reg [31:0] PC = 0,
     output [31:0] x10
 
 );
@@ -20,9 +18,13 @@ module cpu (
     localparam OPC_SYS = 7'b1110011;  // ebreak ... special system instructions
 
 
-    reg [31:0] RAM [63:0];  // RAM, 256 bytes
-    reg [31:0] RARR[31:0];  // register array, 32 registers
-    assign x10 = RARR[10];  // x10  (a0) is outed for visuals
+    reg [31:0] MEM[63:0];  // Memory, 256 bytes
+    reg [31:0] RA[31:0];  // register array, 32 registers
+
+    reg [31:0] instr;  // current instruction
+    reg [31:0] PC;  // Program Counter
+
+    assign x10 = RA[10];  // x10  (a0) is outed for visuals
 
     // to hold source registers
     // register are signed by default, so we use $unsigned() when instruction is u-variant.
@@ -30,21 +32,26 @@ module cpu (
     reg signed [31:0] rs2 = 0;
 
     integer i;
+    `include "mul.v"  // program file
     initial begin
         PC = 0;
+        LOADMEM;  // loads memory file from mem.v
+        instr = MEM[0];
+
         // zero all registers
         for (i = 0; i < 31; i++) begin
-            RARR[i] = 0;
+            RA[i] = 0;
         end
 
-        // zero all RAM?
+        //$monitor("PC: %0d | OPC: %b | x1: %0d, x2: %0d", PC, opcode, RA[1], RA[2]);
+
     end
 
     // there are 6 main types of instructions
     // R-Type: instructions using 3 register inputs: add, xor, mul etc
     // I-Type: instructions with IMMediates and Loads: addi, lw, jalr, slli
     // S-Type: Store instructions: sw, sb
-    // B-Type: BRARRnch instructions: beq, bge
+    // B-Type: BRAnch instructions: beq, bge
     // U-Type: instructions using upper immediates (20-bits):  lui, auipc
     // J-Type: jump instructions: ja
 
@@ -76,49 +83,47 @@ module cpu (
         if (!resetn) begin
             PC = 0;
         end
+        // fetch instruction
+        instr = MEM[PC[31:2]];
         // force zero register (x0)
-        RARR[0] = 0;
+        RA[0] = 0;
         case (opcode)
             OPC_REG: begin
                 // fetch source registers
-                rs1 = RARR[rs1_idx];
-                rs2 = RARR[rs2_idx];
+                rs1 = RA[rs1_idx];
+                rs2 = RA[rs2_idx];
                 case (funct3)
                     3'h0: begin
-                        if (funct7 == 7'h00) RARR[rd_idx] = rs1 + rs2;  // add
-                        if (funct7 == 7'h20) RARR[rd_idx] = rs1 - rs2;  // sub
+                        if (funct7 == 7'h00) RA[rd_idx] = rs1 + rs2;  // add
+                        if (funct7 == 7'h20) RA[rd_idx] = rs1 - rs2;  // sub
                     end
                     3'h4: begin
-                        if (funct7 == 7'h00) RARR[rd_idx] = rs1 ^ rs2;  // xor
+                        if (funct7 == 7'h00) RA[rd_idx] = rs1 ^ rs2;  // xor
                     end
 
                     3'h6: begin
-                        if (funct7 == 7'h00) RARR[rd_idx] = rs1 | rs2;  // or
+                        if (funct7 == 7'h00) RA[rd_idx] = rs1 | rs2;  // or
                     end
 
                     3'h7: begin
-                        if (funct7 == 7'h00) RARR[rd_idx] = rs1 & rs2;  // and
+                        if (funct7 == 7'h00) RA[rd_idx] = rs1 & rs2;  // and
                     end
 
                     3'h1: begin
-                        if (funct7 == 7'h00) RARR[rd_idx] = rs1 << rs2;  // sll
+                        if (funct7 == 7'h00) RA[rd_idx] = rs1 << rs2;  // sll
                     end
 
                     3'h5: begin
-                        if (funct7 == 7'h00) RARR[rd_idx] = rs1 >> rs2;  // srl
-                        if (funct7 == 7'h20) RARR[rd_idx] = rs1 >>> rs2;  // sRARR
+                        if (funct7 == 7'h00) RA[rd_idx] = rs1 >> rs2;  // srl
+                        if (funct7 == 7'h20) RA[rd_idx] = rs1 >>> rs2;  // sRA
                     end
 
                     3'h2: begin
-                        if (funct7 == 7'h00) RARR[rd_idx] = rs1 < rs2 ? 32'd1 : 32'd0;  // slt
+                        if (funct7 == 7'h00) RA[rd_idx] = rs1 < rs2 ? 32'd1 : 32'd0;  // slt
                     end
                     3'h3: begin
                         if (funct7 == 7'h00)
-                            RARR[rd_idx] = ($unsigned(
-                                rs1
-                            ) < $unsigned(
-                                rs2
-                            )) ? 32'd1 : 32'd0;  // sltu
+                            RA[rd_idx] = ($unsigned(rs1) < $unsigned(rs2)) ? 32'd1 : 32'd0;  // sltu
                     end
 
                 endcase
@@ -127,42 +132,42 @@ module cpu (
 
             OPC_IMM: begin
                 // fetch source register rs1
-                rs1 = RARR[rs1_idx];
+                rs1 = RA[rs1_idx];
                 case (funct3)
-                    3'h0: RARR[rd_idx] = rs1 + I_imm;  // addi
-                    3'h4: RARR[rd_idx] = rs1 ^ I_imm;  // xori
-                    3'h6: RARR[rd_idx] = rs1 | I_imm;  // ori
-                    3'h7: RARR[rd_idx] = rs1 & I_imm;  // andi
+                    3'h0: RA[rd_idx] = rs1 + I_imm;  // addi
+                    3'h4: RA[rd_idx] = rs1 ^ I_imm;  // xori
+                    3'h6: RA[rd_idx] = rs1 | I_imm;  // ori
+                    3'h7: RA[rd_idx] = rs1 & I_imm;  // andi
                     3'h1: begin
-                        if (funct7 == 7'h00) RARR[rd_idx] = rs1 << shamt;  // slli
+                        if (funct7 == 7'h00) RA[rd_idx] = rs1 << shamt;  // slli
                     end
                     3'h5: begin
-                        if (funct7 == 7'h00) RARR[rd_idx] = rs1 >> shamt;  // srli
-                        if (funct7 == 7'h20) RARR[rd_idx] = $signed(rs1) >>> shamt;  // sRARRi
+                        if (funct7 == 7'h00) RA[rd_idx] = rs1 >> shamt;  // srli
+                        if (funct7 == 7'h20) RA[rd_idx] = $signed(rs1) >>> shamt;  // sRAi
                     end
-                    3'h2: RARR[rd_idx] = (rs1 < $signed(I_imm)) ? 32'd1 : 32'd0;  // slti
+                    3'h2: RA[rd_idx] = (rs1 < $signed(I_imm)) ? 32'd1 : 32'd0;  // slti
                     3'h3:
-                    RARR[rd_idx] = ($unsigned(rs1) < $unsigned(I_imm)) ? 32'd1 : 32'd0;  // sltiu
+                    RA[rd_idx] = ($unsigned(rs1) < $unsigned(I_imm)) ? 32'd1 : 32'd0;  // sltiu
                 endcase
                 PC = PC + 4;  // increment PC
 
             end
 
             OPC_JAL: begin  // jal
-                RARR[rd_idx] = PC + 4;
+                RA[rd_idx] = PC + 4;
                 PC = PC + J_imm;
             end
 
             OPC_JALR: begin  // jalr
-                rs1 = RARR[rs1_idx];
+                rs1 = RA[rs1_idx];
 
-                RARR[rd_idx] = PC + 4;
+                RA[rd_idx] = PC + 4;
                 PC = rs1 + I_imm;
             end
 
             OPC_BRANCH: begin
-                rs1 = RARR[rs1_idx];
-                rs2 = RARR[rs2_idx];
+                rs1 = RA[rs1_idx];
+                rs2 = RA[rs2_idx];
 
                 // branch if condition is satisfied, else increment PC to next line
                 case (funct3)
@@ -176,26 +181,25 @@ module cpu (
             end
 
             OPC_LUI: begin
-                RARR[rd_idx] = U_imm;
+                RA[rd_idx] = U_imm;
                 PC = PC + 4;  // increment PC
             end
 
             OPC_AUIPC: begin
-                RARR[rd_idx] = PC + U_imm;
+                RA[rd_idx] = PC + U_imm;
                 PC = PC + 4;  // increment PC
 
             end
 
             OPC_LOAD: begin
-                rs1 = RARR[rs1_idx];
+                rs1 = RA[rs1_idx];
 
                 case (funct3)
-                    3'h0: RARR[rd_idx] = RAM[rs1+I_imm][7:0];  // lb | load byte, 8 bits
-                    3'h1: RARR[rd_idx] = RAM[rs1+I_imm][15:0];  // lh | load half, 16 bits
-                    3'h2: RARR[rd_idx] = RAM[rs1+I_imm][31:0];  // lw | load word, 32 bits
-                    3'h4: RARR[rd_idx] = RAM[rs1+I_imm][7:0];  // lb | load byte, 8 bits
-                    3'h5: RARR[rd_idx] = RAM[rs1+I_imm][7:0];  // lb | load byte, 8 bits
-
+                    3'h0: RA[rd_idx] = MEM[rs1+I_imm][7:0];  // lb | load byte, 8 bits
+                    3'h1: RA[rd_idx] = MEM[rs1+I_imm][15:0];  // lh | load half, 16 bits
+                    3'h2: RA[rd_idx] = MEM[rs1+I_imm][31:0];  // lw | load word, 32 bits
+                    3'h4: RA[rd_idx] = MEM[rs1+I_imm][7:0];  // lb | load byte, 8 bits
+                    3'h5: RA[rd_idx] = MEM[rs1+I_imm][7:0];  // lb | load byte, 8 bits
                 endcase
                 PC = PC + 4;  // increment PC
 
@@ -205,7 +209,9 @@ module cpu (
                 // basically nop, do NOT increment PC and finish simulation
                 // $finish;
             end
+
         endcase
+        instr = MEM[PC[31:2]];  // update for some reason
     end
 
 endmodule

@@ -1,8 +1,12 @@
 module cpu_tb ();
 
     reg clk = 0;
+    reg resetn = 1;
 
-    cpu u0 (.clk(clk));
+    cpu u0 (
+        .resetn(resetn),
+        .clk(clk)
+    );
 
     always begin
         #1 clk = ~clk;

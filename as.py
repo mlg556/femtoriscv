@@ -45,8 +45,13 @@ codet = [
 ]  # extract lines containing \t
 code_hex = [(x.split("\t")[1]).strip() for x in codet]  # extract hex instructions
 
+# currently only outputs .text section, which is a problem:
+# we also need to be able to load .data section into MEM
 
-with open(f"{fname_woext}.hex", "w+") as f:
-    f.write("v2.0 raw\n")
-    for line in code_hex:
-        f.write(f"{line}\n")
+with open(f"{fname_woext}.v", "w+") as f:
+    f.write("task LOADMEM;\n")
+    f.write("\tbegin\n")
+    for i, line in enumerate(code_hex):
+        f.write(f"\t\tMEM[{i}] = 32'h{line};\n")
+    f.write("\tend\n")
+    f.write("endtask\n")

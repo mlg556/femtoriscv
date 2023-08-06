@@ -1,57 +1,47 @@
+# using bronzebeard
+
 from subprocess import Popen, PIPE
 from sys import argv
+from binascii import hexlify
+
 
 fname = argv[1]
+# fname = "fib.S"
 fname_woext = fname.split(".")[0]
+fname_hex = f"{fname_woext}.hex"
+fname_v = f"{fname_woext}.v"
 
-
-cmd_as = Popen(
-    [
-        "riscv64-unknown-elf-as",
-        "-march=rv32i",
-        "-mabi=ilp32",
-        "-mno-relax",
-        fname,
-        "-o",
-        f"{fname_woext}.elf",
-    ],
+cmd = Popen(
+    ["bronzebeard", fname, "-o", fname_hex],
     stdin=PIPE,
     stdout=PIPE,
     stderr=PIPE,
     shell=True,
 )
 
-_, err = cmd_as.communicate(b"")
+_, err = cmd.communicate(b"")
 
-if err:
-    print(err)
+code_hex = []
 
-cmd_objdump = Popen(
-    ["riscv64-unknown-elf-objdump.exe", "-S", f"{fname_woext}.elf"],
-    stdin=PIPE,
-    stdout=PIPE,
-    stderr=PIPE,
-    shell=True,
-)
+with open(fname_hex, "rb") as f:
+    code_hex = f.read()
 
-code, err = cmd_objdump.communicate(b"")
+code = []
 
-code = code.decode("utf-8")
+word_size = 4
+for i in range(0, len(code_hex), word_size):
+    word = code_hex[i : i + word_size]
+    word = word[::-1]
+    code.append(hexlify(word).decode())
 
-print(code)
+print(fname_hex)
 
-codet = [
-    x.strip() for x in code.split("\n") if "\t" in x
-]  # extract lines containing \t
-code_hex = [(x.split("\t")[1]).strip() for x in codet]  # extract hex instructions
+[print(line) for line in code]
 
-# currently only outputs .text section, which is a problem:
-# we also need to be able to load .data section into MEM
-
-with open(f"{fname_woext}.v", "w+") as f:
+with open(fname_v, "w+") as f:
     f.write("task LOADMEM;\n")
     f.write("\tbegin\n")
-    for i, line in enumerate(code_hex):
+    for i, line in enumerate(code):
         f.write(f"\t\tMEM[{i}] = 32'h{line};\n")
     f.write("\tend\n")
     f.write("endtask\n")

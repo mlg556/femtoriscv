@@ -32,7 +32,7 @@ module cpu (
     reg signed [31:0] rs2 = 0;
 
     integer i;
-    `include "mul.v"  // program file
+    `include "fib.v"  // program file
     initial begin
         PC = 0;
         LOADMEM;  // loads memory file from mem.v

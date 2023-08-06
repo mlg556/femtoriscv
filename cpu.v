@@ -1,10 +1,13 @@
+
 module cpu (
     input clk,
     input resetn,
 
-    output [31:0] x10
+    output [31:0] a0
 
 );
+    `include "sext.v"
+
 
     // opcodes
     localparam OPC_REG = 7'b0110011;  // add, sub, xor ...
@@ -18,13 +21,13 @@ module cpu (
     localparam OPC_SYS = 7'b1110011;  // ebreak ... special system instructions
 
 
-    reg [31:0] MEM[63:0];  // Memory, 256 bytes
+    reg [31:0] MEM[255:0];  // Memory, 256x4 = 1024 bytes
     reg [31:0] RA[31:0];  // register array, 32 registers
 
     reg [31:0] instr;  // current instruction
     reg [31:0] PC;  // Program Counter
 
-    assign x10 = RA[10];  // x10  (a0) is outed for visuals
+    assign a0 = RA[10];  // a0  (a0) is outed for visuals
 
     // to hold source registers
     // register are signed by default, so we use $unsigned() when instruction is u-variant.
@@ -43,7 +46,8 @@ module cpu (
             RA[i] = 0;
         end
 
-        //$monitor("PC: %0d | OPC: %b | x1: %0d, x2: %0d", PC, opcode, RA[1], RA[2]);
+        $monitor("a0: %0d", a0);
+        //$monitor("PC: %0d | OPC: %b | a0: %0d", PC, opcode, a0);
 
     end
 
@@ -64,11 +68,21 @@ module cpu (
     wire [ 6:0] funct7 = instr[31:25];
 
     // immediate fields
-    wire [31:0] I_imm = {{21{instr[31]}}, instr[30:20]};
-    wire [31:0] S_imm = {{21{instr[31]}}, instr[30:25], instr[11:7]};
-    wire [31:0] B_imm = {{20{instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0};
-    wire [31:0] U_imm = {instr[31], instr[30:12], {12{1'b0}}};  // left shifted
-    wire [31:0] J_imm = {{12{instr[31]}}, instr[19:12], instr[20], instr[30:21], 1'b0};
+
+    wire [31:0] I_imm = sext12(instr[31:20]);
+
+    wire [31:0] S_imm = sext12({instr[31:25], instr[11:7]});
+
+    wire [31:0] B_imm = sext12({instr[31], instr[7], instr[30:25], instr[11:8], 1'b0});
+
+    wire [31:0] U_imm = {instr[31:12], {12{1'b0}}};
+    wire [31:0] J_imm = sext20({instr[31], instr[19:12], instr[20], instr[30:21], 1'b0});
+
+    //wire [31:0] I_imm = {{21{instr[31]}}, instr[30:20]};
+    //wire [31:0] S_imm = {{21{instr[31]}}, instr[30:25], instr[11:7]};
+    //wire [31:0] B_imm = {{20{instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0};
+    //wire [31:0] U_imm = {instr[31], instr[30:12], {12{1'b0}}};  // left shifted (right zero padded?)
+
 
     // I_type shift amount: I_imm[4:0]
     wire [ 4:0] shamt = rs2_idx;
@@ -207,7 +221,7 @@ module cpu (
 
             OPC_SYS: begin
                 // basically nop, do NOT increment PC and finish simulation
-                // $finish;
+                $finish;
             end
 
         endcase

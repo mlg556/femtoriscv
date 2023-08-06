@@ -1,7 +1,7 @@
 # using bronzebeard
 
 from subprocess import Popen, PIPE
-from sys import argv
+from sys import argv, exit
 from binascii import hexlify
 
 
@@ -20,6 +20,10 @@ cmd = Popen(
 )
 
 _, err = cmd.communicate(b"")
+
+if err:
+    print(err.decode())
+    exit(0)
 
 code_hex = []
 

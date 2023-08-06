@@ -2,7 +2,7 @@ main:
     li a0, 3
     li a1, 5
 
-    jal ra, mull # x = mul(x,y)
+    call mull
     ebreak
 
 mull:

@@ -40,14 +40,9 @@ module cpu (
         PC = 0;
         LOADMEM;  // loads memory file from mem.v
 
-        // store some words to be loaded
-        // Note: index 100 (word address)
-        //     corresponds to 
-        // address 400 (byte address)
+        // 100 word address is 400 byte address
         MEM[100] = {8'h4, 8'h3, 8'h2, 8'h1};
         MEM[101] = {8'h8, 8'h7, 8'h6, 8'h5};
-        MEM[102] = {8'hc, 8'hb, 8'ha, 8'h9};
-        MEM[103] = {8'hff, 8'hf, 8'he, 8'hd};
 
         instr = MEM[0];
 
@@ -56,7 +51,7 @@ module cpu (
             RA[i] = 0;
         end
 
-        $monitor("a0: %0d", a0);
+        $monitor("a0: %x", a0);
         //$monitor("PC: %0d | OPC: %b | a0: %0d", PC, opcode, a0);
 
     end
@@ -93,8 +88,10 @@ module cpu (
     wire [ 4:0] shamt = rs2_idx;
 
     // store/load addresses
-    wire [31:0] store_addr = rs1 + I_imm;
-    wire [31:0] load_addr = rs1 + S_imm;
+    // reg  [31:0] store_addr;
+    // reg  [31:0] load_addr;
+    wire [31:0] store_addr = rs1 + S_imm;
+    wire [31:0] load_addr = rs1 + I_imm;
 
     always @(posedge clk) begin
         // RESET
@@ -224,7 +221,7 @@ module cpu (
                         sext16(MEM[load_addr[31:2]][15:0]);  // lh | load half, 16 bits, signext
                     3'h2: begin
                         RA[rd_idx] = MEM[load_addr[31:2]];  // lw | load word, 32 bits
-                        $display("RA[%d] = MEM[%d]", rd_idx, load_addr[31:2]);
+                        $display("LOAD: RA[%d] <= MEM[%0d]", rd_idx, load_addr[31:2]);
                     end
                     3'h4:
                     RA[rd_idx] = MEM[load_addr[31:2]][7:0];  // lbu | load byte unsigned, 8 bits, zeroext
@@ -241,16 +238,19 @@ module cpu (
                 rs2 = RA[rs2_idx];
 
                 case (funct3)
-                    3'h0: MEM[rs1+S_imm][7:0] = rs2[7:0];  // sb: store byte
-                    3'h1: MEM[rs1+S_imm][15:0] = rs2[15:0];  // sh: store half
-                    3'h2: MEM[rs1+S_imm] = rs2;  // sw: store word
+                    3'h0: MEM[store_addr[31:2]][7:0] = rs2[7:0];  // sb: store byte
+                    3'h1: MEM[store_addr[31:2]][15:0] = rs2[15:0];  // sh: store half
+                    3'h2: begin
+                        MEM[store_addr[31:2]] = rs2;  // sw: store word
+                        $display("STORE: MEM[%0d] <= %0d", store_addr[31:2], rs2);
+                    end
                 endcase
                 PC = PC + 4;
             end
 
             OPC_SYS: begin
                 // basically nop, do NOT increment PC and finish simulation
-                //$finish;
+                $finish;
             end
 
         endcase

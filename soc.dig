@@ -4,6 +4,24 @@
   <attributes/>
   <visualElements>
     <visualElement>
+      <elementName>Clock</elementName>
+      <elementAttributes>
+        <entry>
+          <string>small</string>
+          <boolean>true</boolean>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>clk</string>
+        </entry>
+        <entry>
+          <string>Frequency</string>
+          <int>10</int>
+        </entry>
+      </elementAttributes>
+      <pos x="-480" y="340"/>
+    </visualElement>
+    <visualElement>
       <elementName>ExternalFile</elementName>
       <elementAttributes>
         <entry>
@@ -16,45 +34,27 @@
         </entry>
         <entry>
           <string>externalInputs</string>
-          <string>clk,resetn</string>
+          <string>mem_rdata:32, resetn, clk</string>
         </entry>
         <entry>
           <string>externalOutputs</string>
-          <string>x10:32</string>
+          <string>mem_addr:32,a0:32</string>
         </entry>
         <entry>
           <string>Width</string>
-          <int>6</int>
-        </entry>
-        <entry>
-          <string>iverilogOptions</string>
-          <string>-I C:/Users/mirac/Documents/fpga/femtoriscv</string>
+          <int>12</int>
         </entry>
         <entry>
           <string>CodeFile</string>
           <file>cpu.v</file>
         </entry>
       </elementAttributes>
-      <pos x="-20" y="180"/>
-    </visualElement>
-    <visualElement>
-      <elementName>Clock</elementName>
-      <elementAttributes>
-        <entry>
-          <string>runRealTime</string>
-          <boolean>true</boolean>
-        </entry>
-        <entry>
-          <string>Frequency</string>
-          <int>10</int>
-        </entry>
-      </elementAttributes>
-      <pos x="-100" y="180"/>
+      <pos x="-60" y="260"/>
     </visualElement>
     <visualElement>
       <elementName>Const</elementName>
       <elementAttributes/>
-      <pos x="-40" y="220"/>
+      <pos x="-80" y="280"/>
     </visualElement>
     <visualElement>
       <elementName>Out</elementName>
@@ -65,7 +65,7 @@
         </entry>
         <entry>
           <string>Label</string>
-          <string>x10</string>
+          <string>a0</string>
         </entry>
         <entry>
           <string>Bits</string>
@@ -76,21 +76,186 @@
           <intFormat>dec</intFormat>
         </entry>
       </elementAttributes>
-      <pos x="220" y="200"/>
+      <pos x="260" y="280"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Out</elementName>
+      <elementAttributes>
+        <entry>
+          <string>small</string>
+          <boolean>true</boolean>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>addr</string>
+        </entry>
+        <entry>
+          <string>Bits</string>
+          <int>32</int>
+        </entry>
+        <entry>
+          <string>intFormat</string>
+          <intFormat>dec</intFormat>
+        </entry>
+      </elementAttributes>
+      <pos x="260" y="240"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Out</elementName>
+      <elementAttributes>
+        <entry>
+          <string>small</string>
+          <boolean>true</boolean>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>data</string>
+        </entry>
+        <entry>
+          <string>Bits</string>
+          <int>32</int>
+        </entry>
+        <entry>
+          <string>intFormat</string>
+          <intFormat>hex</intFormat>
+        </entry>
+      </elementAttributes>
+      <pos x="260" y="180"/>
+    </visualElement>
+    <visualElement>
+      <elementName>ExternalFile</elementName>
+      <elementAttributes>
+        <entry>
+          <string>applicationType</string>
+          <appType>IVERILOG</appType>
+        </entry>
+        <entry>
+          <string>Label</string>
+          <string>memory</string>
+        </entry>
+        <entry>
+          <string>externalInputs</string>
+          <string>mem_addr:32,i_mem_data:32,mem_rw, clk</string>
+        </entry>
+        <entry>
+          <string>externalOutputs</string>
+          <string>o_mem_data:32</string>
+        </entry>
+        <entry>
+          <string>Width</string>
+          <int>12</int>
+        </entry>
+        <entry>
+          <string>CodeFile</string>
+          <file>memory.v</file>
+        </entry>
+      </elementAttributes>
+      <pos x="-420" y="220"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Const</elementName>
+      <elementAttributes/>
+      <pos x="-440" y="280"/>
+    </visualElement>
+    <visualElement>
+      <elementName>Const</elementName>
+      <elementAttributes>
+        <entry>
+          <string>Value</string>
+          <long>0</long>
+        </entry>
+        <entry>
+          <string>Bits</string>
+          <int>32</int>
+        </entry>
+      </elementAttributes>
+      <pos x="-460" y="240"/>
     </visualElement>
   </visualElements>
   <wires>
     <wire>
+      <p1 x="-460" y="240"/>
+      <p2 x="-420" y="240"/>
+    </wire>
+    <wire>
+      <p1 x="200" y="240"/>
+      <p2 x="260" y="240"/>
+    </wire>
+    <wire>
+      <p1 x="-440" y="160"/>
+      <p2 x="200" y="160"/>
+    </wire>
+    <wire>
+      <p1 x="-480" y="340"/>
+      <p2 x="-440" y="340"/>
+    </wire>
+    <wire>
+      <p1 x="-440" y="340"/>
+      <p2 x="-80" y="340"/>
+    </wire>
+    <wire>
+      <p1 x="-180" y="260"/>
+      <p2 x="-100" y="260"/>
+    </wire>
+    <wire>
+      <p1 x="180" y="260"/>
+      <p2 x="200" y="260"/>
+    </wire>
+    <wire>
+      <p1 x="-100" y="260"/>
+      <p2 x="-60" y="260"/>
+    </wire>
+    <wire>
       <p1 x="-100" y="180"/>
-      <p2 x="-20" y="180"/>
+      <p2 x="260" y="180"/>
     </wire>
     <wire>
-      <p1 x="100" y="200"/>
-      <p2 x="220" y="200"/>
+      <p1 x="-80" y="280"/>
+      <p2 x="-60" y="280"/>
     </wire>
     <wire>
-      <p1 x="-40" y="220"/>
-      <p2 x="-20" y="220"/>
+      <p1 x="180" y="280"/>
+      <p2 x="260" y="280"/>
+    </wire>
+    <wire>
+      <p1 x="-440" y="280"/>
+      <p2 x="-420" y="280"/>
+    </wire>
+    <wire>
+      <p1 x="-440" y="300"/>
+      <p2 x="-420" y="300"/>
+    </wire>
+    <wire>
+      <p1 x="-80" y="300"/>
+      <p2 x="-60" y="300"/>
+    </wire>
+    <wire>
+      <p1 x="-440" y="220"/>
+      <p2 x="-420" y="220"/>
+    </wire>
+    <wire>
+      <p1 x="-100" y="180"/>
+      <p2 x="-100" y="260"/>
+    </wire>
+    <wire>
+      <p1 x="-440" y="300"/>
+      <p2 x="-440" y="340"/>
+    </wire>
+    <wire>
+      <p1 x="-440" y="160"/>
+      <p2 x="-440" y="220"/>
+    </wire>
+    <wire>
+      <p1 x="200" y="160"/>
+      <p2 x="200" y="240"/>
+    </wire>
+    <wire>
+      <p1 x="200" y="240"/>
+      <p2 x="200" y="260"/>
+    </wire>
+    <wire>
+      <p1 x="-80" y="300"/>
+      <p2 x="-80" y="340"/>
     </wire>
   </wires>
   <measurementOrdering/>

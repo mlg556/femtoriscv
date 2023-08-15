@@ -1,9 +1,10 @@
-module clkdiv (
+module clk_div #(
+    parameter N = 2
+) (
     input  clk,
     output clk_out
 );
     // slows down the clock by 2^N
-    localparam N = 21;
     reg [N:0] counter = 0;
 
     always @(posedge clk) begin

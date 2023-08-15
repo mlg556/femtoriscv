@@ -1,52 +1,41 @@
 /**
- * Step 11: Creating a RISC-V processor
- *         Separate memory
+ * Step 10: Creating a RISC-V processor
+ *         LUI, AUIPC
  * DONE*
  */
 
 `default_nettype none
-`include "clockworks.v"
 
-module Memory (
-    input             clk,
-    input      [31:0] mem_addr,   // address to be read
-    output reg [31:0] mem_rdata,  // data read from memory
-    input             mem_rstrb   // goes high when processor wants to read
+module SOC (
+    input        CLK,    // system clock 
+    input        RESET,  // reset button
+    output [4:0] LEDS,   // system LEDs
+    input        RXD,    // UART receive
+    output       TXD     // UART transmit
 );
 
-    reg [31:0] MEM[0:255];
+    wire clk;  // internal clock
+    wire resetn;  // internal reset signal, goes low on reset
+
+    // Plug the leds on register 1 to see its contents
+    reg [4:0] leds;
+    assign LEDS = leds;
+
+
+    reg [31:0] MEM                           [0:255];
+    reg [31:0] PC = 0;  // program counter
+    reg [31:0] instr;  // current instruction
+
 
     `include "riscv_assembly.v"
-    integer L0_ = 8;
     initial begin
-        ADD(x1, x0, x0);
-        ADDI(x2, x0, 31);
-        Label(L0_);
-        ADDI(x1, x1, 1);
-        BNE(x1, x2, LabelRef(L0_));
+        LUI(x1, 32'b11111111111111111111111111111111);  // Just takes the 20 MSBs (12 LSBs ignored)
+        ORI(x1, x1, 32'b11111111111111111111111111111111);  // Sets the 12 LSBs (20 MSBs ignored)
         EBREAK();
+
         endASM();
     end
 
-    always @(posedge clk) begin
-        if (mem_rstrb) begin
-            mem_rdata <= MEM[mem_addr[31:2]];
-        end
-    end
-endmodule
-
-
-module Processor (
-    input             clk,
-    input             resetn,
-    output     [31:0] mem_addr,
-    input      [31:0] mem_rdata,
-    output            mem_rstrb,
-    output reg [31:0] x1
-);
-
-    reg  [31:0] PC = 0;  // program counter
-    reg  [31:0] instr;  // current instruction
 
     // See the table P. 105 in RISC-V manual
 
@@ -120,7 +109,6 @@ module Processor (
         endcase
     end
 
-
     // The predicate for branch instructions
     reg takeBranch;
     always @(*) begin
@@ -137,9 +125,8 @@ module Processor (
 
     // The state machine
     localparam FETCH_INSTR = 0;
-    localparam WAIT_INSTR = 1;
-    localparam FETCH_REGS = 2;
-    localparam EXECUTE = 3;
+    localparam FETCH_REGS = 1;
+    localparam EXECUTE = 2;
     reg [1:0] state = FETCH_INSTR;
 
     // register write back
@@ -171,7 +158,7 @@ module Processor (
                 RegisterBank[rdId] <= writeBackData;
                 // For displaying what happens.
                 if (rdId == 1) begin
-                    x1 <= writeBackData;
+                    leds <= writeBackData;
                 end
 `ifdef BENCH
                 $display("x%0d <= %b", rdId, writeBackData);
@@ -179,10 +166,7 @@ module Processor (
             end
             case (state)
                 FETCH_INSTR: begin
-                    state <= WAIT_INSTR;
-                end
-                WAIT_INSTR: begin
-                    instr <= mem_rdata;
+                    instr <= MEM[PC[31:2]];
                     state <= FETCH_REGS;
                 end
                 FETCH_REGS: begin
@@ -202,9 +186,6 @@ module Processor (
             endcase
         end
     end
-
-    assign mem_addr  = PC;
-    assign mem_rstrb = (state == FETCH_INSTR);
 
 `ifdef BENCH
     always @(posedge clk) begin
@@ -229,42 +210,6 @@ module Processor (
         end
     end
 `endif
-
-endmodule
-
-
-module SOC (
-    input        CLK,    // system clock 
-    input        RESET,  // reset button
-    output [4:0] LEDS,   // system LEDs
-    input        RXD,    // UART receive
-    output       TXD     // UART transmit
-);
-
-    wire clk;
-    wire resetn;
-
-    Memory RAM (
-        .clk(clk),
-        .mem_addr(mem_addr),
-        .mem_rdata(mem_rdata),
-        .mem_rstrb(mem_rstrb)
-    );
-
-    wire [31:0] mem_addr;
-    wire [31:0] mem_rdata;
-    wire mem_rstrb;
-    wire [31:0] x1;
-
-    Processor CPU (
-        .clk(clk),
-        .resetn(resetn),
-        .mem_addr(mem_addr),
-        .mem_rdata(mem_rdata),
-        .mem_rstrb(mem_rstrb),
-        .x1(x1)
-    );
-    assign LEDS = x1[4:0];
 
     // Gearbox and reset circuitry.
     Clockworks #(

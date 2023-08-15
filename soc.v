@@ -8,7 +8,7 @@ module memory (
     reg [31:0] MEM[0:255];  /* synthesis syn_ramstyle = "block_ram" */
     wire [31:0] addr = mem_addr[31:2];
 
-    localparam fname = "fib_ascii.hex";
+    localparam fname = "mul_ascii.hex";
 
     initial begin
         $readmemh(fname, MEM);
@@ -61,7 +61,7 @@ module cpu (
         for (i = 0; i < 31; i++) begin
             RA[i] = 0;
         end
-        $monitor("a0: %d", a0);
+        //$monitor("a0: %d", a0);
         //$monitor("PC: %d", PC);
     end
 
@@ -242,10 +242,9 @@ endmodule
 
 module soc (
     input clk,
-    output [31:0] a0,
-    output [31:0] addr,
-    output [31:0] data
+    output signed [31:0] a0
 );
+    initial $monitor("a0: %d", a0);
     wire [31:0] wire_data;
     wire [31:0] wire_addr;
     // cpu
@@ -265,6 +264,6 @@ module soc (
         .o_mem_data(wire_data)
     );
 
-    assign addr = wire_addr;
-    assign data = wire_data;
+    // assign addr = wire_addr;
+    // assign data = wire_data;
 endmodule

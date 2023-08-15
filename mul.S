@@ -1,6 +1,6 @@
 main:
-    li a0, 3
-    li a1, 5
+    li a0, -4
+    li a1, 17
 
     call mull
     ebreak

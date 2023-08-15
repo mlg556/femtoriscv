@@ -8,7 +8,10 @@ from binascii import hexlify
 fname = argv[1]
 # fname = "fib.S"
 fname_woext = fname.split(".")[0]
+
 fname_hex = f"{fname_woext}.hex"
+fname_asciihex = f"{fname_woext}_ascii.hex"
+fname_asciidighex = f"{fname_woext}_asciidig.hex"
 fname_v = f"{fname_woext}.v"
 
 cmd = Popen(
@@ -38,9 +41,18 @@ for i in range(0, len(code_hex), word_size):
     word = word[::-1]
     code.append(hexlify(word).decode())
 
-print(fname_hex)
+print(fname_asciihex, fname_asciidighex)
 
 [print(line) for line in code]
+
+with open(fname_asciihex, "w+") as f:
+    for line in code:
+        f.write(line + "\n")
+
+with open(fname_asciidighex, "w+") as f:
+    f.write("v2.0 raw\n")
+    for line in code:
+        f.write(line + "\n")
 
 with open(fname_v, "w+") as f:
     f.write("task LOADMEM;\n")

@@ -1,50 +1,60 @@
-module memory (
-    input             clk,
-    input      [31:0] mem_addr,
-    input      [31:0] i_mem_data,
-    input             mem_rw,      // low=>write : high=>read
-    output reg [31:0] o_mem_data   // data read from memory
-);
-    reg [31:0] MEM[0:255];  /* synthesis syn_ramstyle = "block_ram" */
-    wire [31:0] addr = mem_addr[31:2];
-
-    localparam fname = "mul_ascii.hex";
-
-    initial begin
-        $readmemh(fname, MEM);
-    end
-
-    always @(posedge clk) begin
-        if (mem_rw) o_mem_data <= MEM[addr];
-        else MEM[addr] <= i_mem_data;
-    end
-endmodule
+`include "memory.v"
 
 module cpu (
     input clk,
     input resetn,
 
     input [31:0] mem_rdata,
-    output reg [31:0] mem_addr,
+    output reg [31:0] mem_wdata = 0,
+    output [31:0] mem_addr = 0,
 
     output [31:0] a0
 
 );
 
+    localparam K = 32;
+
+    // sign extend 8 => 32
+    function [(K-1):0] sext8(input [(N-1):0] b);
+        localparam N = 8;
+        sext8 = $signed({{(K - N) {b[(N-1)]}}, b[(N-2):0]});
+    endfunction
+
+    // sign extend 12 => 32
+    function [(K-1):0] sext12(input [(N-1):0] b);
+        localparam N = 12;
+        sext12 = $signed({{(K - N) {b[(N-1)]}}, b[(N-2):0]});
+    endfunction
+
+    // sign extend 16 => 32
+    function [(K-1):0] sext16(input [(N-1):0] b);
+        localparam N = 16;
+        sext16 = $signed({{(K - N) {b[(N-1)]}}, b[(N-2):0]});
+    endfunction
+
+    // sign extend 20 => 32
+    function [(K-1):0] sext20(input [(N-1):0] b);
+        localparam N = 20;
+        sext20 = $signed({{(K - N) {b[(N-1)]}}, b[(N-2):0]});
+    endfunction
+
     // opcodes
-    localparam OPC_R = 7'b0110011;
-    localparam OPC_I = 7'b0010011;
-    localparam OPC_ILOAD = 7'b0000011;
-    localparam OPC_JAL = 7'b1101111;
-    localparam OPC_JALR = 7'b1100111;
-    localparam OPC_B = 7'b1100011;
-    localparam OPC_LUI = 7'b0110111;
-    localparam OPC_AUIPC = 7'b0010111;
-    localparam OPC_SYS = 7'b1110011;  // special system instruction
+    localparam OPC_REG = 7'b0110011;  // add, sub, xor ... rd = rs1 op rs2
+    localparam OPC_IMM = 7'b0010011;  // addi, xori, slli ... rd = rs1 op imm
+    localparam OPC_JAL = 7'b1101111;  // jal: jump and link
+    localparam OPC_JALR = 7'b1100111;  // jalr: jump and link register
+    localparam OPC_BRANCH = 7'b1100011;  // beq, bne ... branch if equal/notequal
+    localparam OPC_LUI = 7'b0110111;  // lui: load upper immediate
+    localparam OPC_AUIPC = 7'b0010111;  // auipc: add upper immediate to pc
+    localparam OPC_LOAD = 7'b0000011;  // lb, lh ... load from memory
+    localparam OPC_STORE = 7'b0100011;  // sb, sh, sw... store in memory
+    localparam OPC_SYS = 7'b1110011;  // ebreak ... special system instructions
 
 
     reg [31:0] PC = 0;
     reg [31:0] instr = 0;
+
+    reg [31:0] mem_data = 0;
 
     reg [31:0] RA[0:31];  // register array
     assign a0 = RA[10];  // a0  (a0) is outed for visuals
@@ -61,7 +71,7 @@ module cpu (
         for (i = 0; i < 31; i++) begin
             RA[i] = 0;
         end
-        //$monitor("a0: %d", a0);
+        $monitor("a0: %d", a0);
         //$monitor("PC: %d", PC);
     end
 
@@ -82,20 +92,29 @@ module cpu (
     wire [ 6:0] funct7 = instr[31:25];
 
     // immediate fields
-    wire [31:0] I_imm = {{21{instr[31]}}, instr[30:20]};
-    wire [31:0] S_imm = {{21{instr[31]}}, instr[30:25], instr[11:7]};
-    wire [31:0] B_imm = {{20{instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0};
-    wire [31:0] U_imm = {instr[31], instr[30:12], {12{1'b0}}};  // left shifted
-    wire [31:0] J_imm = {{12{instr[31]}}, instr[19:12], instr[20], instr[30:21], 1'b0};
+    wire [31:0] I_imm = sext12(instr[31:20]);
+    wire [31:0] S_imm = sext12({instr[31:25], instr[11:7]});
+    wire [31:0] B_imm = sext12({instr[31], instr[7], instr[30:25], instr[11:8], 1'b0});
+    wire [31:0] U_imm = {instr[31:12], {12{1'b0}}};
+    wire [31:0] J_imm = sext20({instr[31], instr[19:12], instr[20], instr[30:21], 1'b0});
 
     // I_type shift amount: I_imm[4:0]
     wire [ 4:0] shamt = rs2_idx;
+
+    // store/load addresses
+    reg  [31:0] store_addr;
+    reg  [31:0] load_addr;
+    // wire [31:0] store_addr = rs1 + S_imm;
+    // wire [31:0] load_addr = rs1 + I_imm;
 
     // The state machine
     localparam FETCH_INSTR = 0;
     localparam WAIT_INSTR = 1;
     localparam EXECUTE = 2;
-    reg [1:0] state = FETCH_INSTR;
+    localparam WAIT_LOAD = 3;
+    localparam LOAD = 4;
+
+    reg [4:0] state = FETCH_INSTR;
 
     always @(posedge clk) begin
         // RESET
@@ -114,9 +133,9 @@ module cpu (
                 state = EXECUTE;
             end
             EXECUTE: begin
-                // $display("OPC: %b", opcode);
+                //$display("OPC: %b", opcode);
                 case (opcode)
-                    OPC_R: begin
+                    OPC_REG: begin
                         // fetch source registers
                         rs1 = RA[rs1_idx];
                         rs2 = RA[rs2_idx];
@@ -160,9 +179,11 @@ module cpu (
 
                         endcase
                         PC = PC + 4;  // increment PC
+                        mem_addr = PC;
+                        state = FETCH_INSTR;
                     end
 
-                    OPC_I: begin
+                    OPC_IMM: begin
                         // fetch source register rs1
                         rs1 = RA[rs1_idx];
                         case (funct3)
@@ -183,21 +204,27 @@ module cpu (
                                 32'd0;  // sltiu
                         endcase
                         PC = PC + 4;  // increment PC
+                        mem_addr = PC;
+                        state = FETCH_INSTR;
                     end
 
                     OPC_JAL: begin  // jal
                         RA[rd_idx] = PC + 4;
                         PC = PC + J_imm;
+                        mem_addr = PC;
+                        state = FETCH_INSTR;
                     end
 
                     OPC_JALR: begin  // jalr
                         rs1 = RA[rs1_idx];
-
                         RA[rd_idx] = PC + 4;
+
                         PC = rs1 + I_imm;
+                        mem_addr = PC;
+                        state = FETCH_INSTR;
                     end
 
-                    OPC_B: begin
+                    OPC_BRANCH: begin
                         rs1 = RA[rs1_idx];
                         rs2 = RA[rs2_idx];
 
@@ -211,28 +238,62 @@ module cpu (
                             3'h7:
                             PC = ($unsigned(rs1) >= $unsigned(rs2)) ? PC + B_imm : PC + 4;  // bgeu
                         endcase
+                        mem_addr = PC;
+                        state = FETCH_INSTR;
                     end
 
                     OPC_LUI: begin
                         RA[rd_idx] = U_imm;
                         PC = PC + 4;  // increment PC
+                        mem_addr = PC;
+                        state = FETCH_INSTR;
                     end
 
                     OPC_AUIPC: begin
                         RA[rd_idx] = PC + U_imm;
                         PC = PC + 4;  // increment PC
 
+                        mem_addr = PC;
+                        state = FETCH_INSTR;
+
+                    end
+
+                    OPC_LOAD: begin
+                        rs1 = RA[rs1_idx];
+                        mem_addr = rs1 + I_imm;
+                        PC = PC + 4;
+                        state = WAIT_LOAD;
                     end
 
                     OPC_SYS: begin
                         // basically nop, do NOT increment PC and finish simulation
-                        // $finish;
+                        $finish;
                     end
                 endcase
+            end
+            WAIT_LOAD: begin
+                state = LOAD;
+            end
+            LOAD: begin
+                // $display("load");
 
-                // update addr
+                // $display("LOAD");
+                rs1 = RA[rs1_idx];
+                // we need to sign-extend the 8 and 16 bits.
+                // zero-extension is done automagically by verilog in assignment.
+                case (funct3)
+                    3'h0: RA[rd_idx] = sext8(mem_rdata[7:0]);  // lb
+                    3'h1: RA[rd_idx] = sext16(mem_rdata[15:0]);  // lh
+                    3'h2: RA[rd_idx] = mem_rdata;  // lw | load word, 32 bits
+                    3'h4: RA[rd_idx] = mem_rdata[7:0];  // lbu
+                    3'h5: RA[rd_idx] = mem_rdata[15:0];  // lhu
+                endcase
+
+                // $display("LOAD");
+                //$display("MEM[%0d] = %x", mem_addr[31:2], mem_rdata);
+                //$display("LOAD: RA[%d] = MEM[%0d]", rd_idx, mem_addr[31:2]);
+
                 mem_addr = PC;
-                // reset state
                 state = FETCH_INSTR;
             end
         endcase
@@ -240,11 +301,12 @@ module cpu (
 
 endmodule
 
+
 module soc (
     input clk,
     output signed [31:0] a0
 );
-    initial $monitor("a0: %d", a0);
+    // initial $monitor("a0: %d", a0);
     wire [31:0] wire_data;
     wire [31:0] wire_addr;
     // cpu
@@ -264,6 +326,6 @@ module soc (
         .o_mem_data(wire_data)
     );
 
-    // assign addr = wire_addr;
-    // assign data = wire_data;
+    assign addr = wire_addr;
+    assign data = wire_data;
 endmodule

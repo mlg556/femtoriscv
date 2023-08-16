@@ -41,7 +41,7 @@ for i in range(0, len(code_hex), word_size):
     word = word[::-1]
     code.append(hexlify(word).decode())
 
-print(fname_asciihex, fname_asciidighex)
+print(fname_asciihex)
 
 [print(line) for line in code]
 
@@ -49,15 +49,17 @@ with open(fname_asciihex, "w+") as f:
     for line in code:
         f.write(line + "\n")
 
-with open(fname_asciidighex, "w+") as f:
-    f.write("v2.0 raw\n")
-    for line in code:
-        f.write(line + "\n")
+# # used with neeman's Digital simulator
+# with open(fname_asciidighex, "w+") as f:
+#     f.write("v2.0 raw\n")
+#     for line in code:
+#         f.write(line + "\n")
 
-with open(fname_v, "w+") as f:
-    f.write("task LOADMEM;\n")
-    f.write("\tbegin\n")
-    for i, line in enumerate(code):
-        f.write(f"\t\tMEM[{i}] = 32'h{line};\n")
-    f.write("\tend\n")
-    f.write("endtask\n")
+# # used for hardcoding into verilog file
+# with open(fname_v, "w+") as f:
+#     f.write("task LOADMEM;\n")
+#     f.write("\tbegin\n")
+#     for i, line in enumerate(code):
+#         f.write(f"\t\tMEM[{i}] = 32'h{line};\n")
+#     f.write("\tend\n")
+#     f.write("endtask\n")

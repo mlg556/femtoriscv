@@ -2,13 +2,14 @@
 
 module cpu (
     input clk,
-    input resetn,
+    input i_resetn,
 
-    input [31:0] mem_rdata,
-    output reg [31:0] mem_wdata = 0,
-    output [31:0] mem_addr = 0,
+    input [31:0] i_mem_rdata,
 
-    output reg mem_rw = 0,
+    output reg [31:0] o_mem_wdata = 0,
+    output [31:0] o_mem_addr = 0,
+
+    output reg o_mem_rw = 0,
 
     output signed [31:0] a0
 
@@ -42,8 +43,8 @@ module cpu (
 
 
     // halfword and byte extractions for LOAD
-    wire [15:0] mem_rdata_h = mem_addr[1] ? mem_rdata[31:16] : mem_rdata[15:0];
-    wire [ 7:0] mem_rdata_b = mem_addr[0] ? mem_rdata_h[15:8] : mem_rdata_h[7:0];
+    wire [15:0] mem_rdata_h = o_mem_addr[1] ? i_mem_rdata[31:16] : i_mem_rdata[15:0];
+    wire [ 7:0] mem_rdata_b = o_mem_addr[0] ? mem_rdata_h[15:8] : mem_rdata_h[7:0];
 
     // opcodes
     localparam OPC_REG = 7'b0110011;  // add, sub, xor ... rd = rs1 op rs2
@@ -118,23 +119,31 @@ module cpu (
     localparam EXECUTE = 2;
     localparam WAIT_LOAD = 3;
     localparam LOAD = 4;
+    localparam WAIT_STORE = 5;
+    localparam STORE = 6;
+    localparam END_STORE = 7;
 
     reg [4:0] state = FETCH_INSTR;
 
     always @(posedge clk) begin
         // RESET
-        if (!resetn) begin
+        if (!i_resetn) begin
             PC = 0;
             state = FETCH_INSTR;
         end
         // force zero register (x0)
         RA[0] = 0;
 
+        // memory read mode by default
+        //o_mem_rw = 0;
+
         // clock cycle state machine
         case (state)
-            FETCH_INSTR: state = WAIT_INSTR;
+            FETCH_INSTR: begin
+                state = WAIT_INSTR;
+            end
             WAIT_INSTR: begin
-                instr = mem_rdata;
+                instr = i_mem_rdata;
                 state = EXECUTE;
             end
             EXECUTE: begin
@@ -184,7 +193,7 @@ module cpu (
 
                         endcase
                         PC = PC + 4;  // increment PC
-                        mem_addr = PC;
+                        o_mem_addr = PC;
                         state = FETCH_INSTR;
                     end
 
@@ -209,14 +218,14 @@ module cpu (
                                 32'd0;  // sltiu
                         endcase
                         PC = PC + 4;  // increment PC
-                        mem_addr = PC;
+                        o_mem_addr = PC;
                         state = FETCH_INSTR;
                     end
 
                     OPC_JAL: begin  // jal
                         RA[rd_idx] = PC + 4;
                         PC = PC + J_imm;
-                        mem_addr = PC;
+                        o_mem_addr = PC;
                         state = FETCH_INSTR;
                     end
 
@@ -225,7 +234,7 @@ module cpu (
                         RA[rd_idx] = PC + 4;
 
                         PC = rs1 + I_imm;
-                        mem_addr = PC;
+                        o_mem_addr = PC;
                         state = FETCH_INSTR;
                     end
 
@@ -243,14 +252,14 @@ module cpu (
                             3'h7:
                             PC = ($unsigned(rs1) >= $unsigned(rs2)) ? PC + B_imm : PC + 4;  // bgeu
                         endcase
-                        mem_addr = PC;
+                        o_mem_addr = PC;
                         state = FETCH_INSTR;
                     end
 
                     OPC_LUI: begin
                         RA[rd_idx] = U_imm;
                         PC = PC + 4;  // increment PC
-                        mem_addr = PC;
+                        o_mem_addr = PC;
                         state = FETCH_INSTR;
                     end
 
@@ -258,16 +267,34 @@ module cpu (
                         RA[rd_idx] = PC + U_imm;
                         PC = PC + 4;  // increment PC
 
-                        mem_addr = PC;
+                        o_mem_addr = PC;
                         state = FETCH_INSTR;
 
                     end
 
                     OPC_LOAD: begin
                         rs1 = RA[rs1_idx];
-                        mem_addr = rs1 + I_imm;
+
+                        o_mem_addr = rs1 + I_imm;
                         PC = PC + 4;
+
+                        o_mem_rw = 0;
                         state = WAIT_LOAD;
+                    end
+
+                    OPC_STORE: begin
+                        rs1 = RA[rs1_idx];
+                        rs2 = RA[rs2_idx];
+                        o_mem_addr = rs1 + S_imm;
+                        PC = PC + 4;
+                        o_mem_rw = 1;
+
+                        case (funct3)
+                            3'h2: o_mem_wdata = rs2;  // sw: store word
+                        endcase
+
+                        state = WAIT_STORE;
+
                     end
 
                     OPC_SYS: begin
@@ -276,31 +303,33 @@ module cpu (
                     end
                 endcase
             end
-            WAIT_LOAD: begin
-                state = LOAD;
-            end
+            WAIT_LOAD:  state = LOAD;
             LOAD: begin
-                // $display("load");
-
-                // $display("LOAD");
-                rs1 = RA[rs1_idx];
                 // we need to sign-extend the 8 and 16 bits.
                 // zero-extension is done automagically by verilog in assignment.
                 case (funct3)
                     3'h0: RA[rd_idx] = sext8(mem_rdata_b);  // lb
                     3'h1: RA[rd_idx] = sext16(mem_rdata_h);  // lh
-                    3'h2: RA[rd_idx] = mem_rdata;  // lw | load word, 32 bits
+                    3'h2: RA[rd_idx] = i_mem_rdata;  // lw | load word, 32 bits
                     3'h4: RA[rd_idx] = mem_rdata_b;  // lbu
                     3'h5: RA[rd_idx] = mem_rdata_h;  // lhu
                 endcase
 
-                // $display("LOAD");
-                //$display("MEM[%0b] = %x", mem_addr, mem_rdata);
-                //$display("LOAD: RA[%d] = MEM[%0d]", rd_idx, mem_addr[31:2]);
+                //$display("LOAD: RA[%d] = MEM[%0d]", rd_idx, o_mem_addr[31:2]);
 
-                mem_addr = PC;
+                o_mem_addr = PC;
                 state = FETCH_INSTR;
             end
+            WAIT_STORE: state = STORE;
+            STORE: begin
+
+                //$display("STORE: MEM[%0d] = RA[%d] (%0d)", o_mem_addr[31:2], rs2_idx, o_mem_wdata);
+
+                o_mem_rw = 0;
+                o_mem_addr = PC;
+                state = FETCH_INSTR;
+            end
+
         endcase
     end
 
@@ -312,27 +341,35 @@ module soc (
     output signed [31:0] a0
 );
     // initial $monitor("a0: %d", a0);
-    wire [31:0] wire_data;
+    wire [31:0] cpu_out_mem_in_data;
+    wire [31:0] cpu_in_mem_out_data;
     wire [31:0] wire_addr;
     wire wire_mem_rw;
     // cpu
     cpu cpu_i0 (
-        .mem_rdata(wire_data),
-        .resetn(1'b1),
         .clk(clk),
-        .mem_addr(wire_addr),
-        .mem_rw(wire_mem_rw),
+
+        .i_mem_rdata(cpu_in_mem_out_data),
+        .i_resetn(1'b1),
+
+        .o_mem_wdata(cpu_out_mem_in_data),
+        .o_mem_addr(wire_addr),
+        .o_mem_rw(wire_mem_rw),
         .a0(a0)
     );
     // memory
-    memory memory_i1 (
-        .mem_addr(wire_addr),
-        .i_mem_data(32'b0),
-        .mem_rw(wire_mem_rw),
+    memory #(
+        .fname("store_ascii.hex")
+    ) memory_i1 (
         .clk(clk),
-        .o_mem_data(wire_data)
+
+        .i_mem_addr(wire_addr),
+        .i_mem_data(cpu_out_mem_in_data),
+        .i_mem_rw  (wire_mem_rw),
+
+        .o_mem_data(cpu_in_mem_out_data)
     );
 
-    assign addr = wire_addr;
-    assign data = wire_data;
+    // assign addr = wire_addr;
+    // assign data = wire_data;
 endmodule

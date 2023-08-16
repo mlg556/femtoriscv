@@ -1,10 +1,10 @@
 li sp, 0
 
-lb a0, DATA(sp)
-lb a0, DATA+1(sp)
-lb a0, DATA+2(sp)
+lh a0, DATA(sp)
+lh a0, DATA+2(sp)
+lh a0, DATA+4(sp)
 
 DATA:
-bytes 4 5 6
+shorts 4 -5 6
 
 align 4

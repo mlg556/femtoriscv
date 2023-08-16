@@ -8,7 +8,9 @@ module cpu (
     output reg [31:0] mem_wdata = 0,
     output [31:0] mem_addr = 0,
 
-    output [31:0] a0
+    output reg mem_rw = 0,
+
+    output signed [31:0] a0
 
 );
 
@@ -312,19 +314,21 @@ module soc (
     // initial $monitor("a0: %d", a0);
     wire [31:0] wire_data;
     wire [31:0] wire_addr;
+    wire wire_mem_rw;
     // cpu
     cpu cpu_i0 (
         .mem_rdata(wire_data),
         .resetn(1'b1),
         .clk(clk),
         .mem_addr(wire_addr),
+        .mem_rw(wire_mem_rw),
         .a0(a0)
     );
     // memory
     memory memory_i1 (
         .mem_addr(wire_addr),
         .i_mem_data(32'b0),
-        .mem_rw(1'b1),
+        .mem_rw(wire_mem_rw),
         .clk(clk),
         .o_mem_data(wire_data)
     );

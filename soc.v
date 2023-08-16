@@ -38,6 +38,11 @@ module cpu (
         sext20 = $signed({{(K - N) {b[(N-1)]}}, b[(N-2):0]});
     endfunction
 
+
+    // halfword and byte extractions for LOAD
+    wire [15:0] mem_rdata_h = mem_addr[1] ? mem_rdata[31:16] : mem_rdata[15:0];
+    wire [ 7:0] mem_rdata_b = mem_addr[0] ? mem_rdata_h[15:8] : mem_rdata_h[7:0];
+
     // opcodes
     localparam OPC_REG = 7'b0110011;  // add, sub, xor ... rd = rs1 op rs2
     localparam OPC_IMM = 7'b0010011;  // addi, xori, slli ... rd = rs1 op imm
@@ -53,8 +58,6 @@ module cpu (
 
     reg [31:0] PC = 0;
     reg [31:0] instr = 0;
-
-    reg [31:0] mem_data = 0;
 
     reg [31:0] RA[0:31];  // register array
     assign a0 = RA[10];  // a0  (a0) is outed for visuals
@@ -282,15 +285,15 @@ module cpu (
                 // we need to sign-extend the 8 and 16 bits.
                 // zero-extension is done automagically by verilog in assignment.
                 case (funct3)
-                    3'h0: RA[rd_idx] = sext8(mem_rdata[7:0]);  // lb
-                    3'h1: RA[rd_idx] = sext16(mem_rdata[15:0]);  // lh
+                    3'h0: RA[rd_idx] = sext8(mem_rdata_b);  // lb
+                    3'h1: RA[rd_idx] = sext16(mem_rdata_h);  // lh
                     3'h2: RA[rd_idx] = mem_rdata;  // lw | load word, 32 bits
-                    3'h4: RA[rd_idx] = mem_rdata[7:0];  // lbu
-                    3'h5: RA[rd_idx] = mem_rdata[15:0];  // lhu
+                    3'h4: RA[rd_idx] = mem_rdata_b;  // lbu
+                    3'h5: RA[rd_idx] = mem_rdata_h;  // lhu
                 endcase
 
                 // $display("LOAD");
-                //$display("MEM[%0d] = %x", mem_addr[31:2], mem_rdata);
+                //$display("MEM[%0b] = %x", mem_addr, mem_rdata);
                 //$display("LOAD: RA[%d] = MEM[%0d]", rd_idx, mem_addr[31:2]);
 
                 mem_addr = PC;

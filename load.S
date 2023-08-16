@@ -1,14 +1,10 @@
-align 4
-
 li sp, 0
 
-lw a0, DATA(sp)
-
-addi sp, sp, 4
-lw a0, DATA(sp)
-
-addi sp, sp, 4
-lw a0, DATA(sp)
+lb a0, DATA(sp)
+lb a0, DATA+1(sp)
+lb a0, DATA+2(sp)
 
 DATA:
-bytes 1 2 3
+bytes 4 5 6
+
+align 4

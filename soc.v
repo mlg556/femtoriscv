@@ -7,7 +7,7 @@ module cpu (
     input [31:0] i_mem_rdata,
 
     output reg [31:0] o_mem_wdata = 0,
-    output [31:0] o_mem_addr = 0,
+    output reg [31:0] o_mem_addr = 0,
 
     output reg o_mem_rw = 0,
 
@@ -77,7 +77,7 @@ module cpu (
         for (i = 0; i < 31; i++) begin
             RA[i] = 0;
         end
-        $monitor("a0: %d", a0);
+        //$monitor("a0: %d", a0);
         //$monitor("PC: %d", PC);
     end
 
@@ -193,7 +193,7 @@ module cpu (
 
                         endcase
                         PC = PC + 4;  // increment PC
-                        o_mem_addr = PC;
+                        o_mem_addr <= PC;
                         state = FETCH_INSTR;
                     end
 
@@ -218,14 +218,14 @@ module cpu (
                                 32'd0;  // sltiu
                         endcase
                         PC = PC + 4;  // increment PC
-                        o_mem_addr = PC;
+                        o_mem_addr <= PC;
                         state = FETCH_INSTR;
                     end
 
                     OPC_JAL: begin  // jal
                         RA[rd_idx] = PC + 4;
                         PC = PC + J_imm;
-                        o_mem_addr = PC;
+                        o_mem_addr <= PC;
                         state = FETCH_INSTR;
                     end
 
@@ -234,7 +234,7 @@ module cpu (
                         RA[rd_idx] = PC + 4;
 
                         PC = rs1 + I_imm;
-                        o_mem_addr = PC;
+                        o_mem_addr <= PC;
                         state = FETCH_INSTR;
                     end
 
@@ -252,14 +252,14 @@ module cpu (
                             3'h7:
                             PC = ($unsigned(rs1) >= $unsigned(rs2)) ? PC + B_imm : PC + 4;  // bgeu
                         endcase
-                        o_mem_addr = PC;
+                        o_mem_addr <= PC;
                         state = FETCH_INSTR;
                     end
 
                     OPC_LUI: begin
                         RA[rd_idx] = U_imm;
                         PC = PC + 4;  // increment PC
-                        o_mem_addr = PC;
+                        o_mem_addr <= PC;
                         state = FETCH_INSTR;
                     end
 
@@ -267,7 +267,7 @@ module cpu (
                         RA[rd_idx] = PC + U_imm;
                         PC = PC + 4;  // increment PC
 
-                        o_mem_addr = PC;
+                        o_mem_addr <= PC;
                         state = FETCH_INSTR;
 
                     end
@@ -299,7 +299,7 @@ module cpu (
 
                     OPC_SYS: begin
                         // basically nop, do NOT increment PC and finish simulation
-                        $finish;
+                        //$finish;
                     end
                 endcase
             end
@@ -317,7 +317,7 @@ module cpu (
 
                 //$display("LOAD: RA[%d] = MEM[%0d]", rd_idx, o_mem_addr[31:2]);
 
-                o_mem_addr = PC;
+                o_mem_addr <= PC;
                 state = FETCH_INSTR;
             end
             WAIT_STORE: state = STORE;
@@ -326,7 +326,7 @@ module cpu (
                 //$display("STORE: MEM[%0d] = RA[%d] (%0d)", o_mem_addr[31:2], rs2_idx, o_mem_wdata);
 
                 o_mem_rw = 0;
-                o_mem_addr = PC;
+                o_mem_addr <= PC;
                 state = FETCH_INSTR;
             end
 
@@ -338,24 +338,28 @@ endmodule
 
 module soc (
     input clk,
-    output signed [31:0] a0
+    input btn1,
+
+    output [5:0] led
 );
     // initial $monitor("a0: %d", a0);
     wire [31:0] cpu_out_mem_in_data;
     wire [31:0] cpu_in_mem_out_data;
     wire [31:0] wire_addr;
     wire wire_mem_rw;
+
+    wire [31:0] wire_led;
     // cpu
     cpu cpu_i0 (
         .clk(clk),
 
         .i_mem_rdata(cpu_in_mem_out_data),
-        .i_resetn(1'b1),
+        .i_resetn(btn1),
 
         .o_mem_wdata(cpu_out_mem_in_data),
         .o_mem_addr(wire_addr),
         .o_mem_rw(wire_mem_rw),
-        .a0(a0)
+        .a0(wire_led)
     );
     // memory
     memory #(
@@ -369,6 +373,8 @@ module soc (
 
         .o_mem_data(cpu_in_mem_out_data)
     );
+
+    assign led = wire_led[5:0];
 
     // assign addr = wire_addr;
     // assign data = wire_data;

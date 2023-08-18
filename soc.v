@@ -346,6 +346,7 @@ module soc (
     wire [31:0] cpu_out_mem_in_data;
     wire [31:0] cpu_in_mem_out_data;
     wire [31:0] wire_addr;
+    wire [6:0] wire_addr_lsb;
     wire wire_mem_rw;
 
     wire [31:0] wire_led;
@@ -361,13 +362,14 @@ module soc (
         .o_mem_rw(wire_mem_rw),
         .a0(wire_led)
     );
+
+    assign wire_addr_lsb = wire_addr[6:0];
+
     // memory
-    memory #(
-        .fname("store_ascii.hex")
-    ) memory_i1 (
+    memory memory_i1 (
         .clk(clk),
 
-        .i_mem_addr(wire_addr),
+        .i_mem_addr(wire_addr_lsb),
         .i_mem_data(cpu_out_mem_in_data),
         .i_mem_rw  (wire_mem_rw),
 

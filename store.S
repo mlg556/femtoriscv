@@ -1,16 +1,16 @@
 DATA = 100 # base address of data section
 WORD = 4 #each word is 32 bits = 4 bytes
-WAIT = 10_000
+WAIT = 500_000
 
     li sp, 0
-    li a1, 3
+    li a1, 1
     sw a1, DATA(sp)
 
-    li a1, 4
+    li a1, 2
     addi sp, sp, WORD
     sw a1, DATA(sp)
 
-    li a1, 5
+    li a1, 3
     addi sp, sp, WORD
     sw a1, DATA(sp)
 
@@ -33,10 +33,10 @@ display:
     j display
 
 delay:
-    li t1, WAIT
+    li x4, WAIT
 loop:
-    beqz t1, stop
-    addi t1, t1, -1
+    beqz x4, stop
+    addi x4, x4, -1
     j loop
 stop:
     ret

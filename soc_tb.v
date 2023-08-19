@@ -22,7 +22,7 @@ module soc_tb ();
 
         $monitor("%d", led);
 
-        #5000 $finish;  // just in case
+        #10000 $finish;  // just in case
 
     end
 

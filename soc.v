@@ -9,12 +9,11 @@ module cpu (
     output reg [31:0] o_mem_wdata = 0,
     output reg [31:0] o_mem_addr = 0,
 
-    output reg o_mem_rw = 0,
+    output o_mem_rw = 0,
 
     output signed [31:0] a0
 
 );
-
     localparam K = 32;
 
     // sign extend 8 => 32
@@ -116,14 +115,14 @@ module cpu (
     // The state machine
     localparam FETCH_INSTR = 0;
     localparam WAIT_INSTR = 1;
-    localparam EXECUTE = 2;
-    localparam WAIT_LOAD = 3;
-    localparam LOAD = 4;
-    localparam WAIT_STORE = 5;
-    localparam STORE = 6;
-    localparam END_STORE = 7;
+    localparam FETCH_RS = 2;
+    localparam EXECUTE = 3;
+    localparam WAIT_LOAD = 4;
+    localparam LOAD = 5;
+    localparam WAIT_STORE = 6;
+    localparam STORE = 7;
 
-    reg [4:0] state = FETCH_INSTR;
+    reg [3:0] state = FETCH_INSTR;
 
     always @(posedge clk) begin
         // RESET
@@ -132,7 +131,7 @@ module cpu (
             state = FETCH_INSTR;
         end
         // force zero register (x0)
-        RA[0] = 0;
+        RA[0] <= 0;
 
         // memory read mode by default
         //o_mem_rw = 0;
@@ -144,6 +143,11 @@ module cpu (
             end
             WAIT_INSTR: begin
                 instr = i_mem_rdata;
+                state = FETCH_RS;
+            end
+            FETCH_RS: begin
+                rs1 <= RA[rs1_idx];
+                rs2 <= RA[rs2_idx];
                 state = EXECUTE;
             end
             EXECUTE: begin
@@ -151,8 +155,6 @@ module cpu (
                 case (opcode)
                     OPC_REG: begin
                         // fetch source registers
-                        rs1 = RA[rs1_idx];
-                        rs2 = RA[rs2_idx];
                         case (funct3)
                             3'h0: begin
                                 if (funct7 == 7'h00) RA[rd_idx] = rs1 + rs2;  // add
@@ -198,8 +200,6 @@ module cpu (
                     end
 
                     OPC_IMM: begin
-                        // fetch source register rs1
-                        rs1 = RA[rs1_idx];
                         case (funct3)
                             3'h0: RA[rd_idx] = rs1 + I_imm;  // addi
                             3'h4: RA[rd_idx] = rs1 ^ I_imm;  // xori
@@ -230,7 +230,6 @@ module cpu (
                     end
 
                     OPC_JALR: begin  // jalr
-                        rs1 = RA[rs1_idx];
                         RA[rd_idx] = PC + 4;
 
                         PC = rs1 + I_imm;
@@ -239,9 +238,6 @@ module cpu (
                     end
 
                     OPC_BRANCH: begin
-                        rs1 = RA[rs1_idx];
-                        rs2 = RA[rs2_idx];
-
                         case (funct3)
                             3'h0: PC = (rs1 == rs2) ? PC + B_imm : PC + 4;  // beq
                             3'h1: PC = (rs1 != rs2) ? PC + B_imm : PC + 4;  // bne
@@ -273,8 +269,6 @@ module cpu (
                     end
 
                     OPC_LOAD: begin
-                        rs1 = RA[rs1_idx];
-
                         o_mem_addr = rs1 + I_imm;
                         PC = PC + 4;
 
@@ -283,8 +277,6 @@ module cpu (
                     end
 
                     OPC_STORE: begin
-                        rs1 = RA[rs1_idx];
-                        rs2 = RA[rs2_idx];
                         o_mem_addr = rs1 + S_imm;
                         PC = PC + 4;
                         o_mem_rw = 1;
@@ -377,7 +369,7 @@ module soc (
         .o_data(cpu_in_mem_out_data)
     );
 
-    assign led = wire_led[5:0];
+    assign led = ~wire_led[5:0];
 
     // assign addr = wire_addr;
     // assign data = wire_data;

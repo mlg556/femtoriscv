@@ -369,11 +369,12 @@ module soc (
     memory memory_i1 (
         .clk(clk),
 
-        .i_mem_addr(wire_addr_lsb),
-        .i_mem_data(cpu_out_mem_in_data),
-        .i_mem_rw  (wire_mem_rw),
+        .i_addr(wire_addr_lsb),
+        .i_data(cpu_out_mem_in_data),
+        .i_wre(wire_mem_rw),
+        .rst(1'b0),
 
-        .o_mem_data(cpu_in_mem_out_data)
+        .o_data(cpu_in_mem_out_data)
     );
 
     assign led = wire_led[5:0];

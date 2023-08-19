@@ -1,6 +1,6 @@
 DATA = 100 # base address of data section
 WORD = 4 #each word is 32 bits = 4 bytes
-WAIT = 1
+WAIT = 10_000
 
     li sp, 0
     li a1, 3
